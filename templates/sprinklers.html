@@ -59,6 +59,9 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">Nombre: {{ aspersor.nombre }}</h5>
                                     <h5 class="card-title">Ubicacion: {{ aspersor.ubicacion }}</h5>
+                                    {% if mostrar_todos %}
+                                    <p class="text-muted small">Propietario: {{ aspersor.nombre_usuario or 'Desconocido' }} (ID: {{ aspersor.id_usuario }})</p>
+                                    {% endif %}
                                     <div class="position-absolute top-0 end-0 p-3">
                                         <div class="form-check form-switch">
                                             <input 
@@ -118,7 +121,13 @@
                 <div class="modal fade" id="registrarAspersorModal" tabindex="-1" aria-labelledby="registrarAspersorModalLabel" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
+                            {% if mostrar_todos %}
+                            <!-- En vista global, crear aspersor para el propio usuario (session) -->
                             <form method="POST" action="{{ url_for('crear_aspersor', id_usuario=session['id_usuario']) }}">
+                            {% else %}
+                            <!-- En vista de un usuario específico, crear para ese usuario -->
+                            <form method="POST" action="{{ url_for('crear_aspersor', id_usuario=id_usuario_visto) }}">
+                            {% endif %}
                                 <div class="modal-header">
                                     <h5 class="modal-title" id="registrarAspersorModalLabel">Registrar Aspersor</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

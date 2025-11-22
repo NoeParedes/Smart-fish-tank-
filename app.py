@@ -5,6 +5,10 @@ import os
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # True solo si usas HTTPS
 
 # Configuración de SQLite
 DATABASE = 'icc_database.db'
@@ -600,14 +604,22 @@ def delete_programacion(id_programacion):
 
 @app.route('/crear_aspersor/<int:id_usuario>', methods=['POST'])
 def crear_aspersor(id_usuario):
+    print(f"DEBUG - Inicio crear_aspersor, id_usuario de URL: {id_usuario}")
+    print(f"DEBUG - Session data: {dict(session)}")
+    
     if 'id_usuario' not in session:
+        print("DEBUG - No hay sesión activa, redirigiendo a login")
         return redirect(url_for('login'))
 
     tipo_usuario = session['tipo_usuario']
     usuario_actual = session['id_usuario']
 
+    print(f"DEBUG - Creando aspersor para id_usuario: {id_usuario}")
+    print(f"DEBUG - Usuario que crea: {usuario_actual} (tipo: {tipo_usuario})")
+
     # Validar permisos
     if tipo_usuario != 'admin' and id_usuario != usuario_actual:
+        print(f"DEBUG - Permiso denegado: {tipo_usuario} != 'admin' y {id_usuario} != {usuario_actual}")
         flash('No tienes permiso para crear aspersores para este usuario.', 'error')
         return redirect(url_for('aspersores'))
 
@@ -615,31 +627,51 @@ def crear_aspersor(id_usuario):
     nombre = request.form.get('nombre')
     ubicacion = request.form.get('ubicacion')
 
+    print(f"DEBUG - Datos del formulario - Nombre: {nombre}, Ubicacion: {ubicacion}")
+
     if not nombre or not ubicacion:
         flash('Todos los campos son obligatorios.', 'error')
         return redirect(url_for('aspersores', id_usuario=id_usuario))
 
     connection = get_db_connection()
     if not connection:
+        print("DEBUG - Error al conectar con la base de datos")
         flash('Error al conectar con la base de datos.', 'error')
         return redirect(url_for('aspersores'))
 
     try:
         cursor = connection.cursor()
+        print(f"DEBUG - Ejecutando INSERT con valores: id_usuario={id_usuario}, nombre={nombre}, ubicacion={ubicacion}")
         cursor.execute("""
             INSERT INTO aspersores (id_usuario, nombre, ubicacion)
             VALUES (?, ?, ?)
         """, (id_usuario, nombre, ubicacion))
         connection.commit()
+        
+        print(f"DEBUG - Aspersor creado exitosamente para usuario {id_usuario}")
+        
         cursor.close()
         connection.close()
 
         flash('Aspersor creado exitosamente.', 'success')
-        return redirect(url_for('aspersores', id_usuario=id_usuario))
+        
+        # Si es admin y está creando para otro usuario, redirige a users
+        # Si es usuario normal o admin creando para sí mismo, redirige a aspersores
+        if tipo_usuario == 'admin' and id_usuario != usuario_actual:
+            print(f"DEBUG - Admin creando para otro usuario, redirigiendo a /users")
+            return redirect(url_for('users'))
+        else:
+            print(f"DEBUG - Redirigiendo a aspersores del usuario {id_usuario}")
+            return redirect(url_for('aspersores', id_usuario=id_usuario))
     except Exception as e:
-        print(f"Error al crear aspersor: {e}")
+        print(f"ERROR - al crear aspersor: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Error al crear el aspersor.', 'error')
-        return redirect(url_for('aspersores', id_usuario=id_usuario))
+        if tipo_usuario == 'admin':
+            return redirect(url_for('users'))
+        else:
+            return redirect(url_for('aspersores'))
 
 
 @app.route('/aspersores/', defaults={'id_usuario': None}, methods=['GET'])
@@ -651,9 +683,15 @@ def aspersores(id_usuario):
     tipo_usuario = session['tipo_usuario']
     usuario_actual = session['id_usuario']
 
+    print(f"DEBUG - Accediendo a aspersores. Usuario: {usuario_actual}, Tipo: {tipo_usuario}, ID solicitado: {id_usuario}")
+
     # Verificar permisos
     if id_usuario is None:
-        id_usuario = usuario_actual  # Por defecto, muestra los aspersores del usuario actual
+        # Si es admin y no se especifica ID, mostrar TODOS los aspersores
+        if tipo_usuario == 'admin':
+            id_usuario = 'all'  # Marcador para mostrar todos
+        else:
+            id_usuario = usuario_actual  # Usuario normal solo ve los suyos
     elif tipo_usuario != 'admin' and id_usuario != usuario_actual:
         flash('No tienes permiso para ver estos aspersores.', 'error')
         return redirect(url_for('aspersores'))
@@ -665,19 +703,42 @@ def aspersores(id_usuario):
 
     try:
         cursor = connection.cursor()
-        cursor.execute("""
-            SELECT id_aspersor, nombre, ubicacion, estado
-            FROM aspersores
-            WHERE id_usuario = ?
-        """, (id_usuario,))
-        aspersores = cursor.fetchall()
+        
+        # Si es admin sin ID específico, mostrar todos los aspersores con info del usuario
+        if id_usuario == 'all':
+            print("DEBUG - Admin viendo TODOS los aspersores")
+            cursor.execute("""
+                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, u.nombre as nombre_usuario
+                FROM aspersores a
+                LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
+                ORDER BY a.id_usuario, a.id_aspersor
+            """)
+            aspersores = cursor.fetchall()
+            mostrar_todos = True
+        else:
+            print(f"DEBUG - Mostrando aspersores del usuario {id_usuario}")
+            cursor.execute("""
+                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, u.nombre as nombre_usuario
+                FROM aspersores a
+                LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
+                WHERE a.id_usuario = ?
+                ORDER BY a.id_aspersor
+            """, (id_usuario,))
+            aspersores = cursor.fetchall()
+            mostrar_todos = False
+            
         cursor.close()
         connection.close()
 
+        print(f"DEBUG - Se encontraron {len(aspersores)} aspersores")
+
+        id_usuario_visto = None if mostrar_todos else id_usuario
         return render_template('sprinklers.html',
-                               aspersores=aspersores,
-                               nombre_usuario=session['nombre_usuario'],
-                               tipo_usuario=tipo_usuario)
+                       aspersores=aspersores,
+                       nombre_usuario=session['nombre_usuario'],
+                       tipo_usuario=tipo_usuario,
+                       mostrar_todos=mostrar_todos,
+                       id_usuario_visto=id_usuario_visto)
     except Exception as e:
         print(f"Error al obtener aspersores: {e}")
         flash('Error al obtener los aspersores.', 'error')
