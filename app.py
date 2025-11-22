@@ -1,27 +1,92 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-import mysql.connector
-from mysql.connector import Error
+import sqlite3
 from datetime import datetime, timedelta, time
+import os
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
 
-# Configuración de MySQL
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'ICC'
-}
+# Configuración de SQLite
+DATABASE = 'icc_database.db'
 
 # Función para conectar a la base de datos
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(**db_config)
+        connection = sqlite3.connect(DATABASE)
+        connection.row_factory = sqlite3.Row  # Para acceder a columnas por nombre
         return connection
-    except Error as e:
+    except Exception as e:
         print(f"Error al conectar a la base de datos: {e}")
         return None
+
+# Función para inicializar la base de datos
+def init_db():
+    if not os.path.exists(DATABASE):
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            
+            # Crear tablas
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre VARCHAR(100) NOT NULL,
+                    correo VARCHAR(150) UNIQUE NOT NULL,
+                    contrasena VARCHAR(255) NOT NULL,
+                    tipo_usuario TEXT CHECK(tipo_usuario IN ('admin', 'usuario')) NOT NULL DEFAULT 'usuario',
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS aspersores (
+                    id_aspersor INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_usuario INTEGER NOT NULL,
+                    nombre VARCHAR(100) NOT NULL,
+                    ubicacion VARCHAR(255),
+                    estado TEXT CHECK(estado IN ('activo', 'inactivo')) NOT NULL DEFAULT 'inactivo',
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS programaciones_riego (
+                    id_programacion INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_aspersor INTEGER NOT NULL,
+                    hora_inicio DATETIME NOT NULL,
+                    duracion_minutos INTEGER NOT NULL,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS datos_sensores (
+                    id_dato INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_aspersor INTEGER NOT NULL,
+                    tipo_sensor TEXT CHECK(tipo_sensor IN ('humedad', 'temperatura', 'luz', 'otros')) NOT NULL,
+                    valor_sensor REAL NOT NULL,
+                    fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+                )
+            ''')
+            
+            # Insertar usuarios de prueba
+            cursor.execute('''
+                INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES 
+                ('Admin Principal', 'admin@irrigo.com', '123', 'admin'),
+                ('Usuario Demo', 'usuario@irrigo.com', '123', 'usuario'),
+                ('Jaime Farfan', 'jfarfan@utec.edu.pe', '123', 'usuario')
+            ''')
+            
+            connection.commit()
+            cursor.close()
+            connection.close()
+            print("Base de datos inicializada correctamente")
+
+# Inicializar la base de datos al arrancar
+init_db()
 
 
 @app.route('/myprofile')
@@ -32,11 +97,11 @@ def myprofile():
         id_usuario = session['id_usuario']
         connection = get_db_connection()
         if connection:
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             cursor.execute("""
                 SELECT nombre, correo, tipo_usuario, fecha_creacion
                 FROM usuarios 
-                WHERE id_usuario = %s
+                WHERE id_usuario = ?
             """, (id_usuario,))
             usuario = cursor.fetchone()
             cursor.close()
@@ -68,20 +133,20 @@ def update_user_info():
             if nombre and correo:
                 cursor.execute("""
                     UPDATE usuarios 
-                    SET nombre = %s, correo = %s 
-                    WHERE id_usuario = %s
+                    SET nombre = ?, correo = ? 
+                    WHERE id_usuario = ?
                 """, (nombre, correo, id_usuario))
             elif nombre:
                 cursor.execute("""
                     UPDATE usuarios 
-                    SET nombre = %s 
-                    WHERE id_usuario = %s
+                    SET nombre = ? 
+                    WHERE id_usuario = ?
                 """, (nombre, id_usuario))
             elif correo:
                 cursor.execute("""
                     UPDATE usuarios 
-                    SET correo = %s 
-                    WHERE id_usuario = %s
+                    SET correo = ? 
+                    WHERE id_usuario = ?
                 """, (correo, id_usuario))
 
             connection.commit()
@@ -89,7 +154,7 @@ def update_user_info():
             connection.close()
 
             return jsonify({"message": "Información actualizada exitosamente"}), 200
-        except Error as e:
+        except Exception as e:
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"error": "Acceso no autorizado"}), 401
@@ -108,19 +173,27 @@ def login():
         connection = get_db_connection()
 
         if connection:
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("SELECT id_usuario, nombre, contrasena, tipo_usuario FROM usuarios WHERE correo = %s", (correo,))
-            usuario = cursor.fetchone()
+            cursor = connection.cursor()
+            cursor.execute("SELECT id_usuario, nombre, contrasena, tipo_usuario FROM usuarios WHERE correo = ?", (correo,))
+            row = cursor.fetchone()
             cursor.close()
             connection.close()
 
-            if usuario and usuario['contrasena'] == contrasena:  # Sin hash
-                session['id_usuario'] = usuario['id_usuario']
-                session['nombre_usuario'] = usuario['nombre']
-                session['tipo_usuario'] = usuario['tipo_usuario']
+            print(f"DEBUG - Correo ingresado: {correo}")
+            print(f"DEBUG - Usuario encontrado: {row}")
+            
+            if row and row['contrasena'] == contrasena:  # Sin hash
+                session['id_usuario'] = row['id_usuario']
+                session['nombre_usuario'] = row['nombre']
+                session['tipo_usuario'] = row['tipo_usuario']
+                print(f"DEBUG - Login exitoso para: {row['nombre']}")
                 return redirect(url_for('dashboard'))
             else:
+                print(f"DEBUG - Login fallido")
                 flash('Correo o contraseña incorrectos')
+        else:
+            print("DEBUG - No se pudo conectar a la base de datos")
+            flash('Error de conexión a la base de datos')
     return render_template('login.html')
 
 # Ruta para obtener los datos de los sensores
@@ -128,7 +201,7 @@ def login():
 def get_sensor_data():
     connection = get_db_connection()
     if connection:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
             SELECT tiempo, humedad1, humedad2, nivel_agua 
             FROM datos_sensores
@@ -150,7 +223,7 @@ def get_valve_states():
     if connection:
         try:
             # Obtener los estados de las primeras dos válvulas (aspersores) del usuario autenticado
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             cursor.execute("""
                 SELECT estado
                 FROM aspersores
@@ -197,7 +270,7 @@ def save_sensor_data():
                 cursor = connection.cursor()
                 cursor.execute("""
                     INSERT INTO datos_sensores (id_aspersor, tipo_sensor, valor_sensor)
-                    VALUES (%s, %s, %s)
+                    VALUES (?, ?, ?)
                 """, (id_aspersor, tipo_sensor, valor_sensor))
                 connection.commit()
                 cursor.close()
@@ -218,7 +291,7 @@ def dashboard():
         if session['tipo_usuario'] == 'admin':
             connection = get_db_connection()
             if connection:
-                cursor = connection.cursor(dictionary=True)
+                cursor = connection.cursor()
                 cursor.execute("SELECT id_usuario, nombre, correo, tipo_usuario FROM usuarios WHERE tipo_usuario = 'usuario'")
                 usuarios = cursor.fetchall()
                 cursor.close()
@@ -253,7 +326,7 @@ def crear_usuario():
                 cursor = connection.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES (%s, %s, %s, 'usuario')",
+                        "INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES (?, ?, ?, 'usuario')",
                         (nombre, correo, contrasena)
                     )
                     connection.commit()
@@ -317,7 +390,7 @@ def save_schedule():
             cursor = connection.cursor()
             cursor.execute("""
                 INSERT INTO programaciones_riego (id_aspersor, hora_inicio, duracion_minutos, frecuencia)
-                VALUES (%s, %s, %s, %s)
+                VALUES (?, ?, ?, ?)
             """, (id_aspersor, hora_inicio, duracion_minutos, frecuencia))
             connection.commit()
             cursor.close()
@@ -337,7 +410,7 @@ def get_schedules():
     connection = get_db_connection()
     if connection:
         try:
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             cursor.execute("""
                 SELECT id_programacion, id_aspersor, hora_inicio, duracion_minutos
                 FROM programaciones_riego
@@ -350,7 +423,7 @@ def get_schedules():
             for schedule in schedules:
                 # Convertir `hora_inicio` (DATETIME) a una cadena en formato HH:MM:SS
                 if isinstance(schedule['hora_inicio'], datetime):
-                    schedule['hora_inicio'] = schedule['hora_inicio'].strftime('%Y-%m-%d %H:%M:%S')
+                    schedule['hora_inicio'] = schedule['hora_inicio'].strftime('%Y-%m-%d %H:%M:?')
 
                 # Asegurar que `duracion_minutos` sea un entero
                 schedule['duracion_minutos'] = int(schedule['duracion_minutos'])
@@ -381,9 +454,9 @@ def users():
             return jsonify({"error": "Todos los campos son obligatorios"}), 400
 
         try:
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             cursor.execute(
-                "INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES (%s, %s, %s, 'usuario')",
+                "INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES (?, ?, ?, 'usuario')",
                 (nombre, correo, contrasena)
             )
             connection.commit()
@@ -393,7 +466,7 @@ def users():
             return jsonify({"error": f"Error al crear el usuario: {str(e)}"}), 500
 
     # Obtener usuarios para mostrar en la plantilla
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     cursor.execute("SELECT id_usuario, nombre, correo FROM usuarios WHERE tipo_usuario = 'usuario'")
     usuarios = cursor.fetchall()
     cursor.close()
@@ -442,11 +515,11 @@ def calendar(id_aspersor):
 def get_programaciones(id_aspersor):
     try:
         connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
             SELECT id_programacion, hora_inicio, duracion_minutos, fecha_creacion
             FROM programaciones_riego
-            WHERE id_aspersor = %s
+            WHERE id_aspersor = ?
         """, (id_aspersor,))
         programaciones = cursor.fetchall()
         cursor.close()
@@ -456,11 +529,11 @@ def get_programaciones(id_aspersor):
         for programacion in programaciones:
             if 'hora_inicio' in programacion and programacion['hora_inicio'] is not None:
                 # Convertir `hora_inicio` (DATETIME) a cadena en formato legible
-                programacion['hora_inicio'] = programacion['hora_inicio'].strftime('%Y-%m-%d %H:%M:%S')
+                programacion['hora_inicio'] = programacion['hora_inicio'].strftime('%Y-%m-%d %H:%M:?')
 
             if 'fecha_creacion' in programacion and programacion['fecha_creacion'] is not None:
                 # Convertir `fecha_creacion` (TIMESTAMP) a cadena
-                programacion['fecha_creacion'] = programacion['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+                programacion['fecha_creacion'] = programacion['fecha_creacion'].strftime('%Y-%m-%d %H:%M:?')
 
         return jsonify(programaciones), 200
     except Exception as e:
@@ -479,7 +552,7 @@ def save_irrigation_schedule():
         cursor = connection.cursor()
         cursor.execute("""
             INSERT INTO programaciones_riego (id_aspersor, hora_inicio, duracion_minutos)
-            VALUES (%s, %s, %s)
+            VALUES (?, ?, ?)
         """, (id_aspersor, hora_inicio, duracion_minutos))
         connection.commit()
         cursor.close()
@@ -495,9 +568,9 @@ def save_irrigation_schedule():
 def get_aspersor_nombre(id_aspersor):
     try:
         connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
-            SELECT nombre FROM aspersores WHERE id_aspersor = %s
+            SELECT nombre FROM aspersores WHERE id_aspersor = ?
         """, (id_aspersor,))
         aspersor = cursor.fetchone()
         cursor.close()
@@ -516,7 +589,7 @@ def delete_programacion(id_programacion):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("DELETE FROM programaciones_riego WHERE id_programacion = %s", (id_programacion,))
+        cursor.execute("DELETE FROM programaciones_riego WHERE id_programacion = ?", (id_programacion,))
         connection.commit()
         cursor.close()
         connection.close()
@@ -555,7 +628,7 @@ def crear_aspersor(id_usuario):
         cursor = connection.cursor()
         cursor.execute("""
             INSERT INTO aspersores (id_usuario, nombre, ubicacion)
-            VALUES (%s, %s, %s)
+            VALUES (?, ?, ?)
         """, (id_usuario, nombre, ubicacion))
         connection.commit()
         cursor.close()
@@ -591,11 +664,11 @@ def aspersores(id_usuario):
         return redirect(url_for('aspersores'))
 
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
             SELECT id_aspersor, nombre, ubicacion, estado
             FROM aspersores
-            WHERE id_usuario = %s
+            WHERE id_usuario = ?
         """, (id_usuario,))
         aspersores = cursor.fetchall()
         cursor.close()
@@ -627,7 +700,7 @@ def eliminar_aspersor():
                 cursor = connection.cursor()
                 cursor.execute("""
                     DELETE FROM aspersores
-                    WHERE id_aspersor = %s 
+                    WHERE id_aspersor = ? 
                 """, (id_aspersor,))
                 connection.commit()
                 cursor.close()
@@ -672,8 +745,8 @@ def actualizar_aspersor():
                 cursor = connection.cursor()
                 cursor.execute("""
                     UPDATE aspersores 
-                    SET nombre = %s, ubicacion = %s
-                    WHERE id_aspersor = %s 
+                    SET nombre = ?, ubicacion = ?
+                    WHERE id_aspersor = ? 
                 """, (nombre, ubicacion, id_aspersor))
                 connection.commit()
                 cursor.close()
@@ -687,11 +760,11 @@ def actualizar_aspersor():
         connection = get_db_connection()
         aspersores = []
         if connection:
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             cursor.execute("""
                 SELECT id_aspersor, nombre, ubicacion, estado
                 FROM aspersores
-                WHERE id_usuario = %s
+                WHERE id_usuario = ?
             """, (id_usuario,))
             aspersores = cursor.fetchall()
             cursor.close()
@@ -716,7 +789,7 @@ def actualizar_estado_aspersor():
         if connection:
             cursor = connection.cursor()
             print((nuevo_estado,aspersor_id))
-            cursor.execute("UPDATE aspersores SET estado = %s WHERE id_aspersor = %s", (nuevo_estado, aspersor_id))
+            cursor.execute("UPDATE aspersores SET estado = ? WHERE id_aspersor = ?", (nuevo_estado, aspersor_id))
             connection.commit()
             cursor.close()
             connection.close()
@@ -743,7 +816,7 @@ def eliminar_usuario():
                 cursor = connection.cursor()
                 cursor.execute("""
                     DELETE FROM usuarios
-                    WHERE id_usuario = %s
+                    WHERE id_usuario = ?
                 """, (id_usuario_a_eliminar,))
                 connection.commit()
                 cursor.close()

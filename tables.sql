@@ -45,4 +45,9 @@ CREATE TABLE datos_sensores (
     FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
 );
 
-INSERT INTO usuarios (nombre, correo, contrasena) VALUES ('Jaime Farfan','jfarfan@utec.edu.pe','123');
+-- Insertar usuarios de prueba
+INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES 
+('Admin Principal', 'admin@irrigo.com', '123', 'admin'),
+('Usuario Demo', 'usuario@irrigo.com', '123', 'usuario'),
+('Jaime Farfan', 'jfarfan@utec.edu.pe', '123', 'usuario');
+    
