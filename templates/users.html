@@ -1,0 +1,170 @@
+{% extends "base2.html" %}
+
+{% block title %}Users - IRRIGO{% endblock %}
+
+{% block content %}
+<main class="container mt-4">
+    <h1>Administración</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h4">Lista de Usuarios</h2>
+        <div>
+            <!-- Botones juntos a la derecha -->
+            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#crearUsuarioModal">Crear Usuario</button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registrarAspersorModal">Registrar Aspersor</button>
+        </div>
+    </div>
+
+    <!-- Contenedor para la lista de usuarios -->
+    <div class="row">
+        {% for usuario in usuarios %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-shrink-0">
+                            <img src="{{ url_for('static', filename='assets/img/chillguy.webp') }}" alt="Usuario" class="rounded-circle" width="50" height="50">
+                        </div>
+                        <div class="ms-3 flex-grow-1">
+                            <h5 class="card-title">{{ usuario.nombre }}</h5>
+                            <p class="text-muted mb-0">Sistema de regado</p>
+                        </div>
+                        <div>
+                            <!-- Botón para eliminar usuario -->
+                            <button class="btn btn-danger btn-sm eliminar-usuario" data-id="{{ usuario.id_usuario }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('aspersores', id_usuario=usuario.id_usuario) }}" class="btn btn-secondary w-100">Administrar</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</main>
+
+<!-- Modal para Crear Usuario -->
+<div class="modal fade" id="crearUsuarioModal" tabindex="-1" aria-labelledby="crearUsuarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="crearUsuarioModalLabel">Crear Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="crearUsuarioForm" method="POST">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="correo" class="form-label">Correo electrónico</label>
+                        <input type="email" class="form-control" id="correo" name="correo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contrasena" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="contrasena" name="contrasena" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Crear Usuario</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Registrar Aspersor -->
+<div class="modal fade" id="registrarAspersorModal" tabindex="-1" aria-labelledby="registrarAspersorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title" id="registrarAspersorModalLabel">Registrar Aspersor</h5>
+                <button type="button" class="btn-close" data -bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="" method="POST" id="registrarAspersorForm">
+                    <div class="mb-3">
+                        <label for="nombre_aspersor" class="form-label">Nombre del Aspersor</label>
+                        <input type="text" class="form-control" id="nombre_aspersor" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ubicacion" class="form-label">Ubicación</label>
+                        <input type="text" class="form-control" id="ubicacion" name="ubicacion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_usuario" class="form-label">Asignar a Usuario</label>
+                        <select class="form-select" id="id_usuario" name="id_usuario" required>
+                            {% for user in usuarios %}
+                            <option value="{{ user.id_usuario }}">{{ user.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary w-100">Registrar Aspersor</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('crearUsuarioForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Obtener los valores del formulario
+        const nombre = document.getElementById('nombre').value;
+        const correo = document.getElementById('correo').value;
+        const contrasena = document.getElementById('contrasena').value;
+
+        // Enviar datos al endpoint utilizando fetch
+        fetch('/crear_usuario', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nombre, correo, contrasena })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                location.reload(); // Recargar la página
+            } else {
+                alert(data.error || 'Error al crear el usuario');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+
+    // Redirigir el formulario al endpoint correcto
+    document.getElementById('registrarAspersorForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const idUsuario = document.getElementById('id_usuario').value;
+        this.action = `/crear_aspersor/${idUsuario}`;
+        this.submit();
+    });
+
+    // Eliminar usuario
+    document.querySelectorAll('.eliminar-usuario').forEach(button => {
+        button.addEventListener('click', function() {
+            const idUsuario = this.dataset.id;
+            if (confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
+                fetch(`/eliminar_usuario`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ id_usuario: idUsuario })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        location.reload(); // Recargar la página
+                    } else {
+                        alert(data.error || 'Error al eliminar el usuario');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        });
+    });
+</script>
+{% endblock %}

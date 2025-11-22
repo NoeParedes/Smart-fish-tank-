@@ -1,0 +1,308 @@
+{% extends "base2.html" %}
+
+{% block title %}Sprinklers - IRRIGO{% endblock %}
+
+{% block content %}
+
+    <style>
+          /* Ajustar el switch y su posición */
+    .custom-switch {
+        width: 60px; /* Tamaño reducido */
+        height: 25px;
+        background-color: red;
+        border-radius: 30px;
+        position: relative;
+        appearance: none;
+        cursor: pointer;
+        outline: none;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+    .custom-switch:checked {
+        background-color: green;
+    }
+
+    .custom-switch::before {
+        content: '';
+        width: 20px;
+        height: 20px;
+        background-color: white;
+        border-radius: 50%;
+        position: absolute;
+        top: 2.5px;
+        left: 2.5px;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .custom-switch:checked::before {
+        transform: translateX(5px); /* Ajuste menor */
+    }
+
+    </style>
+
+                <div class="container mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3">Aspersores</h1>
+                        <div>
+                            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#registrarAspersorModal">Registrar Aspersor</button>
+                            <button class="btn btn-secondary" id="modoAutomaticoManual">Automático</button>
+                        </div>
+
+                    </div>
+            
+                    <!-- Mostrar los aspersores -->
+                    <div class="row">
+                        {% for aspersor in aspersores %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <img src="{{ url_for('static', filename='assets/img/aspersor.png') }}" class="card-img-top mx-auto my-3" alt="Aspersor" style="width: 128px; height: 128px; ">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Nombre: {{ aspersor.nombre }}</h5>
+                                    <h5 class="card-title">Ubicacion: {{ aspersor.ubicacion }}</h5>
+                                    <div class="position-absolute top-0 end-0 p-3">
+                                        <div class="form-check form-switch">
+                                            <input 
+                                                class="form-check-input estado-switch custom-switch" 
+                                                type="checkbox" 
+                                                role="switch" 
+                                                id="estadoSwitch{{ aspersor.id_aspersor }}" 
+                                                {% if aspersor.estado == 'activo' %} checked {% endif %} 
+                                                data-id="{{ aspersor.id_aspersor }}">
+                                        </div>
+                                    </div>                                    
+                                    <div class="d-flex justify-content-center mt-3">
+                                        <button class="btn btn-warning btn-sm me-2 editar-aspersor" data-id="{{aspersor.id_aspersor}}" data-nombre="{{aspersor.nombre}}" data-ubicacion="{{aspersor.ubicacion}}" data-bs-toggle="modal" data-bs-target="#editarAspersorModal"><i class="fas fa-pen"></i></button>
+                                        <div class="modal fade" id="editarAspersorModal" tabindex="-1" aria-labelledby="editarAspersorModalLabel" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form method="POST" action="/actualizar_aspersor">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="editarAspersorModalLabel">Editar Aspersor</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <input type="hidden" id="editarIdAspersor" name="id_aspersor">
+                                                            <div class="mb-3">
+                                                                <label for="editarNombre" class="form-label">Nombre</label>
+                                                                <input type="text" class="form-control" id="editarNombre" name="nombre" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="editarUbicacion" class="form-label">Ubicación</label>
+                                                                <input type="text" class="form-control" id="editarUbicacion" name="ubicacion" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button class="btn btn-info btn-sm me-2" onclick="window.location.href='/calendar/{{ aspersor.id_aspersor}}'">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        
+
+                                        <button class="btn btn-danger btn-sm eliminar-aspersor" data-id="{{aspersor.id_aspersor}}"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            
+                <!-- Modal para registrar un nuevo aspersor -->
+                <div class="modal fade" id="registrarAspersorModal" tabindex="-1" aria-labelledby="registrarAspersorModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="POST" action="{{ url_for('crear_aspersor', id_usuario=session['id_usuario']) }}">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="registrarAspersorModalLabel">Registrar Aspersor</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label for="nombre" class="form-label">Nombre</label>
+                                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ubicacion" class="form-label">Ubicación</label>
+                                        <input type="text" class="form-control" id="ubicacion" name="ubicacion" required>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Guardar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+                
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+            const switches = document.querySelectorAll(".estado-switch");
+
+            switches.forEach((sw) => {
+                sw.addEventListener("change", (event) => {
+                    // Obtener el ID del aspersor desde el atributo data-id
+                    const aspersorId = event.target.dataset.id;
+            
+                    // Obtener el nuevo estado basado en el interruptor
+                    const nuevoEstado = event.target.checked ? "activo" : "inactivo";
+
+                    // Hacer la petición AJAX al servidor
+                    fetch(`/actualizar_estado_aspersor`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            id_aspersor: aspersorId,       // Pasar el ID del aspersor
+                            estado: nuevoEstado   // Pasar el nuevo estado
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            // Revertir el cambio del switch en caso de error
+                            event.target.checked = !event.target.checked;
+                        }
+                    })
+                    .catch(() => {
+                        event.target.checked = !event.target.checked;
+                    });
+                });
+            });
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+        const editarButtons = document.querySelectorAll(".editar-aspersor");
+
+        editarButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            const id = button.dataset.id;
+            const nombre = button.dataset.nombre;
+            const ubicacion = button.dataset.ubicacion;
+
+            document.getElementById("editarIdAspersor").value = id;
+            document.getElementById("editarNombre").value = nombre;
+            document.getElementById("editarUbicacion").value = ubicacion;
+                });
+            });
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+    const editarButtons = document.querySelectorAll(".editar-aspersor");
+
+    editarButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            const id = button.dataset.id;
+            const nombre = button.dataset.nombre;
+            const ubicacion = button.dataset.ubicacion;
+
+            document.getElementById("editarIdAspersor").value = id;
+            document.getElementById("editarNombre").value = nombre;
+            document.getElementById("editarUbicacion").value = ubicacion;
+        });
+    });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const formEditar = document.querySelector('form[action="/actualizar_aspersor"]');
+    formEditar.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(formEditar);
+        const formObject = Object.fromEntries(formData.entries());
+
+        fetch('/actualizar_aspersor', {
+            method: 'POST',
+            body: JSON.stringify(formObject),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload(); // Recargar la página en caso de éxito
+            } 
+        })
+        .catch(error => {
+            alert('Hubo un problema con la solicitud');
+        });
+    });
+});
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+    const eliminarButtons = document.querySelectorAll(".eliminar-aspersor");
+
+    eliminarButtons.forEach(button => {
+        button.addEventListener("click", (e) => {
+            const id = e.target.closest("button").dataset.id;
+
+            if (confirm("¿Estás seguro de que deseas eliminar este aspersor?")) {
+                // Petición AJAX para eliminar el aspersor
+                fetch(`/eliminar_aspersor`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_aspersor: id })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.message) {
+                        location.reload(); 
+                    } else {
+                        alert(data.error || "Error al eliminar el aspersor.");
+                    }
+                })
+                .catch(err => {
+                    console.error("Error en la solicitud:", err);
+                    alert("Error al eliminar el aspersor.");
+                });
+            }
+        });
+    });
+});
+
+
+const modoButton = document.getElementById("modoAutomaticoManual");
+let modoAutomatico = false;
+
+// Función para habilitar o deshabilitar los interruptores
+function toggleSwitches(disabled) {
+    const switches = document.querySelectorAll(".estado-switch");
+    switches.forEach((sw) => {
+        sw.disabled = disabled; // Deshabilitar o habilitar el switch
+    });
+}
+
+modoButton.addEventListener("click", () => {
+    modoAutomatico = !modoAutomatico;
+    modoButton.textContent = modoAutomatico ? "Automático" : "Manual";
+    
+    // Habilitar o deshabilitar los interruptores según el modo
+    toggleSwitches(modoAutomatico);
+
+    // Aquí puedes agregar lógica para manejar el cambio de modo en el backend si es necesario
+    fetch(`/cambiar_modo`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ modo: modoAutomatico ? "automatico" : "manual" })
+    });
+});
+
+// Al cargar la página, deshabilitar los interruptores si el modo es automático
+document.addEventListener("DOMContentLoaded", () => {
+    toggleSwitches(modoAutomatico); // Llama a la función para establecer el estado inicial
+});
+        </script>
+
+{% endblock %}

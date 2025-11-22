@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRRIGO - Riego Inteligente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+        .bg-pattern {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255,255,255,0.1) 2px, transparent 2px);
+            background-size: 20px 20px;
+        }
+        .parallax-bg {
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+        .tech-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .tech-hover:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .animate-text {
+            animation: fadeIn 3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <!-- Navegación -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fas fa-tint text-3xl text-blue-600 mr-3"></i>
+                <span class="text-2xl font-bold text-blue-800">IRRIGO</span>
+            </div>
+            <div>
+                <a href="/login" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition duration-300">
+                    Iniciar Sesión
+                </a>
+            </div>
+        </div>
+    </nav>
+
+<!-- Hero Section -->
+<header class="relative min-h-screen flex items-center bg-blue-900 text-white parallax-bg animate-text"
+        style="background-image: url('/api/placeholder/1920/1200');">
+    <!-- Fondo degradado encima de la imagen -->
+    <div class="absolute inset-0 bg-gradient-to-r from-blue-900 via-blue-600 to-transparent opacity-80"></div>
+    
+    <div class="container mx-auto px-4 relative z-10 flex items-center justify-between">
+        <!-- Texto de la sección -->
+        <div class="max-w-3xl">
+            <h1 class="text-6xl font-bold mb-6 leading-tight">
+                Revolución Tecnológica en Riego Agrícola
+            </h1>
+            <p class="text-2xl mb-10 text-gray-200">
+                Optimiza tus cultivos con tecnología de punta para una agricultura más eficiente y sostenible.
+            </p>
+        </div>
+
+        <!-- Imagen con degradado para integración -->
+        <div class="w-full md:w-1/2 relative">
+            <img src="/static/assets/img/img5.jpeg" alt="Riego inteligente" class="object-cover w-full h-auto rounded-xl shadow-lg">
+
+            <!-- Degradado que se integra con la imagen -->
+            <div class="absolute inset-0 bg-gradient-to-t from-blue-900 via-transparent to-transparent opacity-50 rounded-xl"></div>
+        </div>
+    </div>
+</header>
+
+
+
+
+    <!-- Tecnología de Punta -->
+    <section class="py-24 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
+                Tecnología que Transforma la Agricultura
+            </h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-blue-50 p-8 rounded-2xl tech-hover shadow-lg">
+                    <img src="/static/assets/img/img3.jpeg" alt="Sistemas de Riego" class="w-full h-64 object-cover rounded-xl mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-800">
+                        Sistemas de Riego Inteligente
+                    </h3>
+                    <p class="text-gray-700">
+                        Tecnología de vanguardia que optimiza el uso del agua con precisión milimétrica.
+                    </p>
+                </div>
+                <div class="bg-green-50 p-8 rounded-2xl tech-hover shadow-lg">
+                    <img src="/static/assets/img/img3.jpeg" alt="Sensores IoT" class="w-full h-64 object-cover rounded-xl mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-green-800">
+                        Sensores IoT Avanzados
+                    </h3>
+                    <p class="text-gray-700">
+                        Red de sensores que monitorean cada aspecto de tus cultivos en tiempo real.
+                    </p>
+                </div>
+                <div class="bg-teal-50 p-8 rounded-2xl tech-hover shadow-lg">
+                    <img src="/static/assets/img/img3.jpeg" alt="Análisis de Datos" class="w-full h-64 object-cover rounded-xl mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-teal-800">
+                        Análisis de Datos AI
+                    </h3>
+                    <p class="text-gray-700">
+                        Optimiza el rendimiento de tus cultivos.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Beneficios -->
+    <section class="py-24 bg-blue-100">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
+                Beneficios Revolucionarios
+            </h2>
+            <div class="grid md:grid-cols-2 gap-12">
+                <div>
+                    <img src="/static/assets/img/img4.jpeg" alt="Beneficios Agricultura" class="w-full rounded-2xl shadow-xl mb-8">
+                </div>
+                <div>
+                    <ul class="space-y-6">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
+                            <div>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Ahorro de Agua</h3>
+                                <p class="text-gray-700">Reduce hasta un 70% el consumo de agua mediante riego inteligente.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
+                            <div>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Productividad</h3>
+                                <p class="text-gray-700">Aumenta el rendimiento de tus cultivos con monitoreo preciso.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
+                            <div>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Sostenibilidad</h3>
+                                <p class="text-gray-700">Contribuye a la conservación del medio ambiente mediante agricultura de precisión.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+   <!-- Galería Tecnológica -->
+<section class="py-24 bg-white">
+    <div class="container mx-auto px-4">
+        <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
+            Nuestra Tecnología en Acción
+        </h2>
+        <div class="grid md:grid-cols-4 gap-6">
+            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Drone Agrícola" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Drone Agrícola" class="w-full h-64 object-cover rounded-xl">
+
+            <img src="{{ url_for('static', filename='assets/img/img2.jpeg') }}" alt="Sensores de Campo" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img3.jpeg') }}" alt="Panel de Control" class="w-full h-64 object-cover rounded-xl">
+        </div>
+    </div>
+</section>
+
+    <!-- Footer -->
+    <footer class="bg-blue-900 text-white py-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2024 irrigo. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>
