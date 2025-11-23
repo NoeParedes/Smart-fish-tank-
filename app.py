@@ -1,7 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import sqlite3
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 import os
+import json
+import paho.mqtt.client as mqtt
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
@@ -10,8 +12,14 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # True solo si usas HTTPS
 
-# Configuración de SQLite
+# Configuración de SQLite y MQTT
 DATABASE = 'icc_database.db'
+MQTT_BROKER = os.environ.get('MQTT_BROKER', '192.168.1.9')
+MQTT_PORT = int(os.environ.get('MQTT_PORT', 1883))
+MQTT_TOPIC_HUMEDAD = os.environ.get('MQTT_TOPIC_HUMEDAD', 'pecera/humedad')
+
+# Cache en memoria del último mensaje recibido del broker
+latest_sensor_data = {"humedad_suelo": None, "raw": None, "timestamp": None}
 
 # Función para conectar a la base de datos
 def get_db_connection():
@@ -92,6 +100,149 @@ def init_db():
 # Inicializar la base de datos al arrancar
 init_db()
 
+# Generar o reutilizar un aspersor por defecto para las lecturas MQTT
+default_aspersor_id = None
+
+def ensure_default_aspersor():
+    """Garantiza que exista un aspersor para asociar las lecturas MQTT y devuelve su id."""
+    global default_aspersor_id
+    if default_aspersor_id is not None:
+        return default_aspersor_id
+
+    connection = get_db_connection()
+    if not connection:
+        print("No se pudo obtener conexión para crear aspersor por defecto")
+        return None
+
+    cursor = connection.cursor()
+    try:
+        cursor.execute("SELECT id_aspersor FROM aspersores ORDER BY id_aspersor LIMIT 1")
+        row = cursor.fetchone()
+        if row:
+            default_aspersor_id = row['id_aspersor']
+        else:
+            # Asegurar que exista algún usuario (toma el primero o crea admin básico)
+            cursor.execute("SELECT id_usuario FROM usuarios ORDER BY id_usuario LIMIT 1")
+            user = cursor.fetchone()
+            if user:
+                owner_id = user['id_usuario']
+            else:
+                cursor.execute("""
+                    INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario)
+                    VALUES ('Admin Principal', 'admin@irrigo.com', '123', 'admin')
+                """)
+                owner_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO aspersores (id_usuario, nombre, ubicacion, estado)
+                VALUES (?, 'Aspersor Principal', 'Generado automáticamente', 'inactivo')
+            """, (owner_id,))
+            default_aspersor_id = cursor.lastrowid
+            connection.commit()
+    except Exception as e:
+        print(f"Error asegurando aspersor por defecto: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return default_aspersor_id
+
+
+def store_sensor_reading(humedad_value, raw_value=None):
+    """Guarda lecturas del broker en la tabla datos_sensores."""
+    aspersor_id = ensure_default_aspersor()
+    if aspersor_id is None:
+        return
+
+    if humedad_value is None and raw_value is None:
+        return
+
+    connection = get_db_connection()
+    if not connection:
+        print("No se pudo guardar lectura: sin conexión a BD")
+        return
+
+    try:
+        cursor = connection.cursor()
+        if humedad_value is not None:
+            cursor.execute("""
+                INSERT INTO datos_sensores (id_aspersor, tipo_sensor, valor_sensor)
+                VALUES (?, 'humedad', ?)
+            """, (aspersor_id, humedad_value))
+        if raw_value is not None:
+            cursor.execute("""
+                INSERT INTO datos_sensores (id_aspersor, tipo_sensor, valor_sensor)
+                VALUES (?, 'otros', ?)
+            """, (aspersor_id, raw_value))
+        connection.commit()
+    except Exception as e:
+        print(f"Error guardando lectura de sensor: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# --- MQTT Listener ---
+mqtt_client = None
+_startup_done = False
+
+def start_mqtt_listener():
+    """Se suscribe al tópico MQTT y guarda las lecturas en la BD."""
+    global mqtt_client
+    if mqtt_client is not None:
+        return mqtt_client
+
+    client = mqtt.Client(
+        client_id="irrigation_webapp",
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+    )
+
+    def on_connect(cl, userdata, flags, reason_code, properties=None):
+        print(f"MQTT conectado (reason_code={reason_code})")
+        cl.subscribe(MQTT_TOPIC_HUMEDAD)
+
+    def on_message(cl, userdata, msg):
+        try:
+            payload = msg.payload.decode('utf-8')
+            data = json.loads(payload)
+            humedad = data.get('humedad_suelo')
+            raw_value = data.get('raw')
+
+            latest_sensor_data['humedad_suelo'] = humedad
+            latest_sensor_data['raw'] = raw_value
+            latest_sensor_data['timestamp'] = datetime.now(timezone.utc).isoformat()
+
+            store_sensor_reading(humedad, raw_value)
+            print(f"MQTT mensaje recibido: humedad={humedad}, raw={raw_value}")
+        except Exception as e:
+            print(f"Error procesando mensaje MQTT: {e}")
+
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    try:
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        client.loop_start()
+        mqtt_client = client
+        print(f"Escuchando MQTT en {MQTT_BROKER}:{MQTT_PORT} tópico {MQTT_TOPIC_HUMEDAD}")
+    except Exception as e:
+        print(f"No se pudo conectar al broker MQTT: {e}")
+
+    return mqtt_client
+
+
+def startup_tasks():
+    """Inicia el listener MQTT y prepara el aspersor por defecto."""
+    global _startup_done
+    if _startup_done:
+        return
+    # Evitar arranque doble con el reloader en modo debug
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return
+    ensure_default_aspersor()
+    start_mqtt_listener()
+    _startup_done = True
+
 
 @app.route('/myprofile')
 def myprofile():
@@ -168,6 +319,11 @@ def update_user_info():
 def index():
     return render_template('index.html')
 
+# Compatibilidad con /index.html
+@app.route('/index.html')
+def index_html():
+    return redirect(url_for('index'))
+
 # Ruta para iniciar sesión
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -200,24 +356,66 @@ def login():
             flash('Error de conexión a la base de datos')
     return render_template('login.html')
 
-# Ruta para obtener los datos de los sensores
+# Ruta para obtener todas las lecturas almacenadas
 @app.route('/get_sensor_data', methods=['GET'])
 def get_sensor_data():
     connection = get_db_connection()
     if connection:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT tiempo, humedad1, humedad2, nivel_agua 
+            SELECT id_aspersor, tipo_sensor, valor_sensor, fecha_hora
             FROM datos_sensores
-            ORDER BY tiempo ASC
+            ORDER BY fecha_hora ASC
         """)
         data = cursor.fetchall()
         cursor.close()
         connection.close()
-
-        # Devuelve los datos como JSON
-        return jsonify(data)
+        # Convertir a tipos serializables
+        return jsonify([dict(row) for row in data])
     return jsonify({"error": "Error al obtener datos"}), 500
+
+
+@app.route('/get_latest_sensor_data', methods=['GET'])
+def get_latest_sensor_data():
+    """Devuelve el último valor recibido del broker MQTT."""
+    if latest_sensor_data['humedad_suelo'] is None and latest_sensor_data['raw'] is None:
+        return jsonify({"error": "Sin datos aún"}), 404
+
+    return jsonify({
+        "humedad_suelo": latest_sensor_data['humedad_suelo'],
+        "raw": latest_sensor_data['raw'],
+        "timestamp": latest_sensor_data['timestamp'],
+        # compatibilidad con el JS existente
+        "moisture1": latest_sensor_data['humedad_suelo'],
+        "moisture2": latest_sensor_data['humedad_suelo'],
+        "waterLevel": latest_sensor_data['raw'],
+    })
+
+
+@app.route('/sensor_data/humedad', methods=['GET'])
+def sensor_data_humedad():
+    """Devuelve las últimas lecturas de humedad almacenadas."""
+    limit = request.args.get('limit', 50)
+    try:
+        limit = int(limit)
+    except ValueError:
+        limit = 50
+
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT valor_sensor AS humedad, fecha_hora
+            FROM datos_sensores
+            WHERE tipo_sensor = 'humedad'
+            ORDER BY fecha_hora DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify([{"humedad": r["humedad"], "fecha_hora": r["fecha_hora"]} for r in rows])
+    return jsonify({"error": "Error al obtener lecturas de humedad"}), 500
 
 @app.route('/get_valve_states', methods=['GET'])
 def get_valve_states():
@@ -907,4 +1105,5 @@ def cambiar_modo():
     return jsonify({"message": f"Modo cambiado a {modo}"}), 200
 
 if __name__ == '__main__':
+    startup_tasks()
     app.run(debug=True)
