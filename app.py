@@ -566,8 +566,55 @@ def logout():
 
 @app.route('/tables')
 def tables():
-    return render_template('tables.html')
+    connection = get_db_connection()
+    tablas = []
+    selected_table = request.args.get('table')
+    columnas = []
+    filas = []
 
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT name 
+            FROM sqlite_master 
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+        """)
+        tablas = [row['name'] for row in cursor.fetchall()]
+        # Solo consultar si la tabla solicitada existe para evitar inyección
+        if selected_table in tablas:
+            try:
+                cursor.execute(f"PRAGMA table_info({selected_table})")
+                columnas = [row['name'] for row in cursor.fetchall()]
+                cursor.execute(f"SELECT * FROM {selected_table} LIMIT 200")
+                filas = cursor.fetchall()
+            except Exception as e:
+                print(f"Error al consultar tabla {selected_table}: {e}")
+        cursor.close()
+        connection.close()
+
+    return render_template('tables.html',
+                           tablas=tablas,
+                           selected_table=selected_table if selected_table in tablas else None,
+                           columnas=columnas,
+                           filas=filas)
+
+
+@app.route('/reset_datos_sensores', methods=['POST'])
+def reset_datos_sensores():
+    """Elimina todas las filas de la tabla datos_sensores."""
+    connection = get_db_connection()
+    if connection:
+        try:
+            cursor = connection.cursor()
+            cursor.execute("DELETE FROM datos_sensores")
+            connection.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"Error al limpiar datos_sensores: {e}")
+        finally:
+            connection.close()
+    return redirect(url_for('tables', table='datos_sensores'))
 @app.route('/charts')
 def charts():
     return render_template('charts.html')
