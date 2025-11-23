@@ -42,8 +42,15 @@
                     {% if selected_table %}
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-primary">Máx 200 filas</span>
-                        {% if selected_table == 'datos_sensores' %}
-                        <form method="post" action="{{ url_for('reset_datos_sensores') }}" onsubmit="return confirm('¿Eliminar todos los registros de datos_sensores?');">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tables', table=selected_table) }}">Refrescar</a>
+                        {% if selected_table in ['datos_sensores','lecturas_humedad','lecturas_ultrasonico','lecturas_calidad'] %}
+                        <form method="post" action="
+                            {% if selected_table == 'datos_sensores' %}
+                                {{ url_for('reset_datos_sensores') }}
+                            {% else %}
+                                {{ url_for('reset_lecturas', sensor_table=selected_table) }}
+                            {% endif %}
+                        " onsubmit="return confirm('¿Eliminar todos los registros de {{ selected_table }}?');">
                             <button type="submit" class="btn btn-sm btn-outline-danger">Resetear datos</button>
                         </form>
                         {% endif %}

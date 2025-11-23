@@ -17,9 +17,17 @@ DATABASE = 'icc_database.db'
 MQTT_BROKER = os.environ.get('MQTT_BROKER', '192.168.1.9')
 MQTT_PORT = int(os.environ.get('MQTT_PORT', 1883))
 MQTT_TOPIC_HUMEDAD = os.environ.get('MQTT_TOPIC_HUMEDAD', 'pecera/humedad')
+MQTT_TOPIC_ULTRASONICO = os.environ.get('MQTT_TOPIC_ULTRASONICO', 'pecera/ultrasonico')
+MQTT_TOPIC_CALIDAD = os.environ.get('MQTT_TOPIC_CALIDAD', 'pecera/calidad')
 
 # Cache en memoria del último mensaje recibido del broker
-latest_sensor_data = {"humedad_suelo": None, "raw": None, "timestamp": None}
+latest_sensor_data = {
+    "humedad_suelo": None,
+    "raw": None,
+    "nivel": None,
+    "calidad": None,
+    "timestamp": None
+}
 
 # Función para conectar a la base de datos
 def get_db_connection():
@@ -33,68 +41,89 @@ def get_db_connection():
 
 # Función para inicializar la base de datos
 def init_db():
-    if not os.path.exists(DATABASE):
-        connection = get_db_connection()
-        if connection:
-            cursor = connection.cursor()
-            
-            # Crear tablas
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS usuarios (
-                    id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nombre VARCHAR(100) NOT NULL,
-                    correo VARCHAR(150) UNIQUE NOT NULL,
-                    contrasena VARCHAR(255) NOT NULL,
-                    tipo_usuario TEXT CHECK(tipo_usuario IN ('admin', 'usuario')) NOT NULL DEFAULT 'usuario',
-                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS aspersores (
-                    id_aspersor INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_usuario INTEGER NOT NULL,
-                    nombre VARCHAR(100) NOT NULL,
-                    ubicacion VARCHAR(255),
-                    estado TEXT CHECK(estado IN ('activo', 'inactivo')) NOT NULL DEFAULT 'inactivo',
-                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
-                )
-            ''')
-            
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS programaciones_riego (
-                    id_programacion INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_aspersor INTEGER NOT NULL,
-                    hora_inicio DATETIME NOT NULL,
-                    duracion_minutos INTEGER NOT NULL,
-                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
-                )
-            ''')
-            
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS datos_sensores (
-                    id_dato INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_aspersor INTEGER NOT NULL,
-                    tipo_sensor TEXT CHECK(tipo_sensor IN ('humedad', 'temperatura', 'luz', 'otros')) NOT NULL,
-                    valor_sensor REAL NOT NULL,
-                    fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
-                )
-            ''')
-            
-            # Insertar usuarios de prueba
+    crear_nueva = not os.path.exists(DATABASE)
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        
+        # Crear tablas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre VARCHAR(100) NOT NULL,
+                correo VARCHAR(150) UNIQUE NOT NULL,
+                contrasena VARCHAR(255) NOT NULL,
+                tipo_usuario TEXT CHECK(tipo_usuario IN ('admin', 'usuario')) NOT NULL DEFAULT 'usuario',
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS aspersores (
+                id_aspersor INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_usuario INTEGER NOT NULL,
+                nombre VARCHAR(100) NOT NULL,
+                ubicacion VARCHAR(255),
+                estado TEXT CHECK(estado IN ('activo', 'inactivo')) NOT NULL DEFAULT 'inactivo',
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS programaciones_riego (
+                id_programacion INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_aspersor INTEGER NOT NULL,
+                hora_inicio DATETIME NOT NULL,
+                duracion_minutos INTEGER NOT NULL,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+            )
+        ''')
+        
+        # Tablas separadas por tipo de sensor
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_humedad (
+                id_lectura INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_aspersor INTEGER NOT NULL,
+                humedad REAL,
+                raw REAL,
+                fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_ultrasonico (
+                id_lectura INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_aspersor INTEGER NOT NULL,
+                nivel REAL,
+                fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_calidad (
+                id_lectura INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_aspersor INTEGER NOT NULL,
+                calidad REAL,
+                fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+            )
+        ''')
+        
+        if crear_nueva:
+            # Insertar usuarios de prueba solo si la BD es nueva
             cursor.execute('''
                 INSERT INTO usuarios (nombre, correo, contrasena, tipo_usuario) VALUES 
                 ('Admin Principal', 'admin@irrigo.com', '123', 'admin'),
                 ('Usuario Demo', 'usuario@irrigo.com', '123', 'usuario'),
                 ('Jaime Farfan', 'jfarfan@utec.edu.pe', '123', 'usuario')
             ''')
-            
-            connection.commit()
-            cursor.close()
-            connection.close()
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        if crear_nueva:
             print("Base de datos inicializada correctamente")
 
 # Inicializar la base de datos al arrancar
@@ -148,13 +177,13 @@ def ensure_default_aspersor():
     return default_aspersor_id
 
 
-def store_sensor_reading(humedad_value, raw_value=None):
-    """Guarda lecturas del broker en la tabla datos_sensores."""
+def store_sensor_reading(humedad_value=None, raw_value=None, nivel_value=None, calidad_value=None):
+    """Guarda lecturas del broker en tablas separadas por sensor."""
     aspersor_id = ensure_default_aspersor()
     if aspersor_id is None:
         return
 
-    if humedad_value is None and raw_value is None:
+    if all(v is None for v in [humedad_value, raw_value, nivel_value, calidad_value]):
         return
 
     connection = get_db_connection()
@@ -166,14 +195,24 @@ def store_sensor_reading(humedad_value, raw_value=None):
         cursor = connection.cursor()
         if humedad_value is not None:
             cursor.execute("""
-                INSERT INTO datos_sensores (id_aspersor, tipo_sensor, valor_sensor)
-                VALUES (?, 'humedad', ?)
+                INSERT INTO lecturas_humedad (id_aspersor, humedad)
+                VALUES (?, ?)
             """, (aspersor_id, humedad_value))
         if raw_value is not None:
             cursor.execute("""
-                INSERT INTO datos_sensores (id_aspersor, tipo_sensor, valor_sensor)
-                VALUES (?, 'otros', ?)
+                INSERT INTO lecturas_humedad (id_aspersor, raw)
+                VALUES (?, ?)
             """, (aspersor_id, raw_value))
+        if nivel_value is not None:
+            cursor.execute("""
+                INSERT INTO lecturas_ultrasonico (id_aspersor, nivel)
+                VALUES (?, ?)
+            """, (aspersor_id, nivel_value))
+        if calidad_value is not None:
+            cursor.execute("""
+                INSERT INTO lecturas_calidad (id_aspersor, calidad)
+                VALUES (?, ?)
+            """, (aspersor_id, calidad_value))
         connection.commit()
     except Exception as e:
         print(f"Error guardando lectura de sensor: {e}")
@@ -200,20 +239,36 @@ def start_mqtt_listener():
     def on_connect(cl, userdata, flags, reason_code, properties=None):
         print(f"MQTT conectado (reason_code={reason_code})")
         cl.subscribe(MQTT_TOPIC_HUMEDAD)
+        cl.subscribe(MQTT_TOPIC_ULTRASONICO)
+        cl.subscribe(MQTT_TOPIC_CALIDAD)
 
     def on_message(cl, userdata, msg):
         try:
             payload = msg.payload.decode('utf-8')
             data = json.loads(payload)
-            humedad = data.get('humedad_suelo')
-            raw_value = data.get('raw')
+            humedad = raw_value = nivel = calidad = None
 
-            latest_sensor_data['humedad_suelo'] = humedad
-            latest_sensor_data['raw'] = raw_value
+            if msg.topic == MQTT_TOPIC_HUMEDAD:
+                humedad = data.get('humedad_suelo')
+                raw_value = data.get('raw')
+                latest_sensor_data['humedad_suelo'] = humedad
+                latest_sensor_data['raw'] = raw_value
+            elif msg.topic == MQTT_TOPIC_ULTRASONICO:
+                # Espera algo como {"nivel": valor_cm} o {"distancia": valor_cm}
+                nivel = data.get('nivel') or data.get('distancia')
+                latest_sensor_data['nivel'] = nivel
+            elif msg.topic == MQTT_TOPIC_CALIDAD:
+                # Espera algo como {"calidad": valor} o {"valor": valor}
+                calidad = data.get('calidad') if 'calidad' in data else data.get('valor')
+                latest_sensor_data['calidad'] = calidad
+
             latest_sensor_data['timestamp'] = datetime.now(timezone.utc).isoformat()
 
-            store_sensor_reading(humedad, raw_value)
-            print(f"MQTT mensaje recibido: humedad={humedad}, raw={raw_value}")
+            store_sensor_reading(humedad_value=humedad,
+                                 raw_value=raw_value,
+                                 nivel_value=nivel,
+                                 calidad_value=calidad)
+            print(f"MQTT mensaje recibido en {msg.topic}: {data}")
         except Exception as e:
             print(f"Error procesando mensaje MQTT: {e}")
 
@@ -363,8 +418,21 @@ def get_sensor_data():
     if connection:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT id_aspersor, tipo_sensor, valor_sensor, fecha_hora
-            FROM datos_sensores
+            SELECT 'humedad' AS tipo_sensor, id_aspersor, humedad AS valor, fecha_hora
+            FROM lecturas_humedad
+            WHERE humedad IS NOT NULL
+            UNION ALL
+            SELECT 'raw' AS tipo_sensor, id_aspersor, raw AS valor, fecha_hora
+            FROM lecturas_humedad
+            WHERE raw IS NOT NULL
+            UNION ALL
+            SELECT 'nivel' AS tipo_sensor, id_aspersor, nivel AS valor, fecha_hora
+            FROM lecturas_ultrasonico
+            WHERE nivel IS NOT NULL
+            UNION ALL
+            SELECT 'calidad' AS tipo_sensor, id_aspersor, calidad AS valor, fecha_hora
+            FROM lecturas_calidad
+            WHERE calidad IS NOT NULL
             ORDER BY fecha_hora ASC
         """)
         data = cursor.fetchall()
@@ -378,12 +446,17 @@ def get_sensor_data():
 @app.route('/get_latest_sensor_data', methods=['GET'])
 def get_latest_sensor_data():
     """Devuelve el último valor recibido del broker MQTT."""
-    if latest_sensor_data['humedad_suelo'] is None and latest_sensor_data['raw'] is None:
+    if (latest_sensor_data['humedad_suelo'] is None and
+        latest_sensor_data['raw'] is None and
+        latest_sensor_data['nivel'] is None and
+        latest_sensor_data['calidad'] is None):
         return jsonify({"error": "Sin datos aún"}), 404
 
     return jsonify({
         "humedad_suelo": latest_sensor_data['humedad_suelo'],
         "raw": latest_sensor_data['raw'],
+        "nivel": latest_sensor_data['nivel'],
+        "calidad": latest_sensor_data['calidad'],
         "timestamp": latest_sensor_data['timestamp'],
         # compatibilidad con el JS existente
         "moisture1": latest_sensor_data['humedad_suelo'],
@@ -405,9 +478,9 @@ def sensor_data_humedad():
     if connection:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT valor_sensor AS humedad, fecha_hora
-            FROM datos_sensores
-            WHERE tipo_sensor = 'humedad'
+            SELECT humedad AS humedad, fecha_hora
+            FROM lecturas_humedad
+            WHERE humedad IS NOT NULL
             ORDER BY fecha_hora DESC
             LIMIT ?
         """, (limit,))
@@ -615,6 +688,26 @@ def reset_datos_sensores():
         finally:
             connection.close()
     return redirect(url_for('tables', table='datos_sensores'))
+
+@app.route('/reset_lecturas/<sensor_table>', methods=['POST'])
+def reset_lecturas(sensor_table):
+    """Elimina todas las filas de una tabla de lecturas específica."""
+    allowed = {'lecturas_humedad', 'lecturas_ultrasonico', 'lecturas_calidad'}
+    if sensor_table not in allowed:
+        return redirect(url_for('tables'))
+
+    connection = get_db_connection()
+    if connection:
+        try:
+            cursor = connection.cursor()
+            cursor.execute(f"DELETE FROM {sensor_table}")
+            connection.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"Error al limpiar {sensor_table}: {e}")
+        finally:
+            connection.close()
+    return redirect(url_for('tables', table=sensor_table))
 @app.route('/charts')
 def charts():
     return render_template('charts.html')
