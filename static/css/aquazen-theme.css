@@ -1,0 +1,209 @@
+/* AquaZen - Sistema de Monitoreo Acuático Inteligente */
+
+/* Paleta de colores oceánica moderna */
+:root {
+    --ocean-deep: #0c4a6e;
+    --ocean-primary: #0e7490;
+    --ocean-secondary: #0891b2;
+    --ocean-light: #06b6d4;
+    --ocean-bright: #67e8f9;
+    --ocean-mist: #cffafe;
+    --ocean-foam: #f0fdfa;
+    --ocean-success: #10b981;
+    --ocean-warning: #fbbf24;
+    --ocean-danger: #ef4444;
+    --ocean-text-dark: #164e63;
+    --ocean-text-light: #0891b2;
+}
+
+/* Utilidades de colores oceánicos */
+.text-teal-600 { color: var(--ocean-light) !important; }
+.text-teal-700 { color: var(--ocean-secondary) !important; }
+.text-teal-800 { color: var(--ocean-text-dark) !important; }
+.bg-ocean-gradient {
+    background: linear-gradient(135deg, var(--ocean-deep) 0%, var(--ocean-primary) 25%, var(--ocean-secondary) 50%, var(--ocean-light) 75%, var(--ocean-bright) 100%) !important;
+}
+.bg-ocean-card {
+    background: linear-gradient(135deg, var(--ocean-foam) 0%, var(--ocean-mist) 100%) !important;
+}
+
+/* Efectos de agua animados */
+@keyframes wave {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes bubble {
+    0% { transform: translateY(100px) scale(0); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(-20px) scale(1); opacity: 0; }
+}
+
+.wave-animation {
+    animation: wave 3s ease-in-out infinite;
+}
+
+.bubble-animation {
+    animation: bubble 4s ease-in-out infinite;
+}
+
+/* Tarjetas mejoradas */
+.card-ocean {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(14, 116, 144, 0.15);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+}
+
+.card-ocean:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(14, 116, 144, 0.25);
+}
+
+/* Botones oceánicos */
+.btn-ocean {
+    background: linear-gradient(135deg, var(--ocean-primary) 0%, var(--ocean-secondary) 50%, var(--ocean-light) 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(14, 116, 144, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-ocean:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(14, 116, 144, 0.4);
+    color: white;
+}
+
+/* Navegación submarina */
+.navbar-ocean {
+    background: linear-gradient(135deg, var(--ocean-deep) 0%, var(--ocean-primary) 50%, var(--ocean-secondary) 100%);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-ocean {
+    background: linear-gradient(180deg, var(--ocean-deep) 0%, var(--ocean-primary) 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Inputs estilo oceánico */
+.form-control-ocean {
+    border: 2px solid var(--ocean-bright);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control-ocean:focus {
+    border-color: var(--ocean-secondary);
+    box-shadow: 0 0 0 0.2rem rgba(8, 145, 178, 0.25);
+}
+
+/* Alertas oceánicas */
+.alert-ocean {
+    background: linear-gradient(135deg, var(--ocean-mist) 0%, var(--ocean-foam) 100%);
+    border: 2px solid var(--ocean-bright);
+    border-radius: 12px;
+    color: var(--ocean-text-dark);
+}
+
+/* Métricas de pecera */
+.metric-card {
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+}
+
+.metric-temperature {
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+    color: #92400e;
+}
+
+.metric-ph {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+}
+
+.metric-oxygen {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #166534;
+}
+
+.metric-quality {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+    color: #be185d;
+}
+
+/* Responsive oceánico */
+@media (max-width: 768px) {
+    .card-ocean {
+        margin-bottom: 1rem;
+    }
+    
+    .metric-card {
+        padding: 1.5rem;
+    }
+}
+
+/* Efectos especiales */
+.glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glow-effect {
+    box-shadow: 0 0 20px rgba(8, 145, 178, 0.3);
+}
+
+/* Contenido de las tablas */
+.table-ocean {
+    border-radius: 15px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 5px 15px rgba(14, 116, 144, 0.1);
+}
+
+.table-ocean th {
+    background: linear-gradient(135deg, var(--ocean-primary) 0%, var(--ocean-secondary) 100%);
+    color: white;
+    border: none;
+    padding: 1rem;
+    font-weight: 600;
+}
+
+.table-ocean td {
+    padding: 1rem;
+    border-color: var(--ocean-mist);
+    vertical-align: middle;
+}
+
+/* Estados de las tarjetas */
+.card-active {
+    border-left: 5px solid var(--ocean-success);
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.card-inactive {
+    border-left: 5px solid var(--ocean-danger);
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+}
+
+.card-warning {
+    border-left: 5px solid var(--ocean-warning);
+    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
+}

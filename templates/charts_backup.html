@@ -1,0 +1,202 @@
+{% extends "base2.html" %}
+
+{% block title %}Gráficos - Pecera IoT{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+                        <h1 class="mt-4">Gráficos de Sensores</h1>
+                        <ol class="breadcrumb mb-4">
+                            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Charts</li>
+                        </ol>
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card text-bg-primary">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="small">Humedad suelo (%)</div>
+                                                <h3 id="latestHumidity" class="mb-0">--</h3>
+                                            </div>
+                                            <i class="fas fa-tint fa-2x"></i>
+                                        </div>
+                                        <div class="small mt-2 text-light opacity-75" id="latestHumidityTs">Sin datos</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-bg-secondary">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="small">Lectura RAW (0-1023)</div>
+                                                <h3 id="latestRaw" class="mb-0">--</h3>
+                                            </div>
+                                            <i class="fas fa-wave-square fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <!-- Humidity Chart -->
+                            <div class="col-lg-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <i class="fas fa-chart-line me-1"></i>
+                                        Humidity Sensor Data
+                                    </div>
+                                    <div class="card-body"><canvas id="humidityChart"></canvas></div>
+                                </div>
+                            </div>
+                            <!-- Water Level Chart -->
+                            <div class="col-lg-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <i class="fas fa-chart-bar me-1"></i>
+                                        Water Level Data
+                                    </div>
+                                    <div class="card-body"><canvas id="waterLevelChart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <i class="fas fa-list me-1"></i>
+                                Últimas lecturas de humedad (desde MQTT)
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha/Hora</th>
+                                                <th>Humedad (%)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="humidityTableBody">
+                                            <tr><td colspan="2">Esperando datos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+              
+        <script>
+            window.addEventListener('load', () => {
+            const latestHumidityEl = document.getElementById('latestHumidity');
+            const latestRawEl = document.getElementById('latestRaw');
+            const latestHumidityTsEl = document.getElementById('latestHumidityTs');
+            const tableBody = document.getElementById('humidityTableBody');
+
+            // Initialize charts
+            const humidityChart = new Chart(document.getElementById('humidityChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Humidity 1 (%)',
+                            data: [],
+                            borderColor: 'blue',
+                            backgroundColor: 'rgba(0, 0, 255, 0.2)',
+                            fill: true
+                        },
+                        {
+                            label: 'Humidity 2 (%)',
+                            data: [],
+                            borderColor: 'green',
+                            backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                            fill: true
+                        }
+                    ]
+                }
+            });
+
+            const waterLevelChart = new Chart(document.getElementById('waterLevelChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Water Level (%)',
+                            data: [],
+                            backgroundColor: 'rgba(255, 165, 0, 0.7)',
+                            borderColor: 'orange',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Update charts dynamically
+            const updateCharts = () => {
+                fetch('/get_latest_sensor_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        const { moisture1, moisture2, waterLevel, humedad_suelo, raw, timestamp: mqttTimestamp } = data;
+                        const nowLabel = new Date().toLocaleTimeString();
+
+                        latestHumidityEl.textContent = humedad_suelo ?? '--';
+                        latestRawEl.textContent = raw ?? '--';
+                        latestHumidityTsEl.textContent = mqttTimestamp ? new Date(mqttTimestamp).toLocaleString() : 'Sin datos';
+
+                        // Update Humidity Chart
+                        humidityChart.data.labels.push(nowLabel);
+                        humidityChart.data.datasets[0].data.push(moisture1);
+                        humidityChart.data.datasets[1].data.push(moisture2);
+                        if (humidityChart.data.labels.length > 10) {
+                            humidityChart.data.labels.shift();
+                            humidityChart.data.datasets[0].data.shift();
+                            humidityChart.data.datasets[1].data.shift();
+                        }
+                        humidityChart.update();
+
+                        // Update Water Level Chart
+                        waterLevelChart.data.labels.push(timestamp);
+                        waterLevelChart.data.datasets[0].data.push(waterLevel);
+                        if (waterLevelChart.data.labels.length > 10) {
+                            waterLevelChart.data.labels.shift();
+                            waterLevelChart.data.datasets[0].data.shift();
+                        }
+                        waterLevelChart.update();
+                    })
+                    .catch(error => console.error('Error fetching sensor data:', error));
+            };
+
+            const loadHumidityHistory = () => {
+                fetch('/sensor_data/humedad?limit=20')
+                    .then(res => res.json())
+                    .then(rows => {
+                        if (!Array.isArray(rows) || rows.length === 0) {
+                            tableBody.innerHTML = '<tr><td colspan="2">Sin datos aún</td></tr>';
+                            return;
+                        }
+                        tableBody.innerHTML = rows.map(r => {
+                            const fecha = r.fecha_hora || '';
+                            const humedad = r.humedad ?? '--';
+                            return `<tr><td>${fecha}</td><td>${humedad}</td></tr>`;
+                        }).join('');
+                    })
+                    .catch(() => {
+                        tableBody.innerHTML = '<tr><td colspan="2">Error al cargar datos</td></tr>';
+                    });
+            }
+
+            updateCharts();
+            loadHumidityHistory();
+            setInterval(() => {
+                updateCharts();
+                loadHumidityHistory();
+            }, 5000);
+            });
+        </script>
+{%endblock%}

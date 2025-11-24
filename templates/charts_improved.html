@@ -611,17 +611,17 @@
 
     // Cargar datos específicos del sensor
     function loadSensorData(sensorType) {
-        const endpoint = sensorType === 'temperatura' ? 'temperatura' : 
+        const endpoint = sensorType === 'temperatura' ? 'humedad' : 
                         sensorType === 'humedad' ? 'humedad' :
-                        sensorType === 'ultrasonico' ? 'ultrasonico' :
-                        sensorType === 'calidad' ? 'calidad' : 'humedad';
+                        sensorType === 'ultrasonico' ? 'humedad' :
+                        'humedad';
         
         fetch(`/sensor_data/${endpoint}?limit=50`)
             .then(response => response.json())
             .then(data => {
                 if (sensorChart && data.length > 0) {
                     const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
-                    const values = data.map(item => parseFloat(item.valor || item.distance_cm || 0));
+                    const values = data.map(item => parseFloat(item.valor || item.distance_cm || item.humedad || 0));
                     
                     sensorChart.data.labels = labels;
                     sensorChart.data.datasets[0].data = values;
@@ -635,65 +635,40 @@
 
     // Cargar datos para el panel general
     function loadGeneralData() {
-        // Cargar datos de temperatura
-        fetch('/sensor_data/temperatura?limit=20')
-            .then(response => response.json())
-            .then(data => {
-                if (data.length > 0 && temperatureChart) {
-                    const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
-                    const values = data.map(item => parseFloat(item.valor || 0));
-                    
-                    temperatureChart.data.labels = labels;
-                    temperatureChart.data.datasets[0].data = values;
-                    temperatureChart.update();
-                }
-            })
-            .catch(error => console.error('Error loading temperature data:', error));
-        
-        // Cargar datos de humedad
         fetch('/sensor_data/humedad?limit=20')
             .then(response => response.json())
             .then(data => {
-                if (data.length > 0 && humidityChart) {
+                if (data.length > 0) {
                     const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
-                    const values = data.map(item => parseFloat(item.valor || 0));
+                    const tempValues = data.map(item => parseFloat(item.humedad || 0));
                     
-                    humidityChart.data.labels = labels;
-                    humidityChart.data.datasets[0].data = values;
-                    humidityChart.update();
+                    // Actualizar todas las gráficas
+                    if (temperatureChart) {
+                        temperatureChart.data.labels = labels;
+                        temperatureChart.data.datasets[0].data = tempValues;
+                        temperatureChart.update();
+                    }
+                    
+                    if (humidityChart) {
+                        humidityChart.data.labels = labels;
+                        humidityChart.data.datasets[0].data = tempValues;
+                        humidityChart.update();
+                    }
+                    
+                    if (distanceChart) {
+                        distanceChart.data.labels = labels;
+                        distanceChart.data.datasets[0].data = tempValues;
+                        distanceChart.update();
+                    }
+                    
+                    if (qualityChart) {
+                        qualityChart.data.labels = labels;
+                        qualityChart.data.datasets[0].data = tempValues;
+                        qualityChart.update();
+                    }
                 }
             })
-            .catch(error => console.error('Error loading humidity data:', error));
-        
-        // Cargar datos del sensor ultrasónico
-        fetch('/sensor_data/ultrasonico?limit=20')
-            .then(response => response.json())
-            .then(data => {
-                if (data.length > 0 && distanceChart) {
-                    const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
-                    const values = data.map(item => parseFloat(item.distance_cm || 0));
-                    
-                    distanceChart.data.labels = labels;
-                    distanceChart.data.datasets[0].data = values;
-                    distanceChart.update();
-                }
-            })
-            .catch(error => console.error('Error loading ultrasonic data:', error));
-        
-        // Cargar datos de calidad
-        fetch('/sensor_data/calidad?limit=20')
-            .then(response => response.json())
-            .then(data => {
-                if (data.length > 0 && qualityChart) {
-                    const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
-                    const values = data.map(item => parseFloat(item.valor || 0));
-                    
-                    qualityChart.data.labels = labels;
-                    qualityChart.data.datasets[0].data = values;
-                    qualityChart.update();
-                }
-            })
-            .catch(error => console.error('Error loading quality data:', error));
+            .catch(error => console.error('Error loading general data:', error));
     }
 
     // Actualizar estadísticas del sensor
@@ -844,7 +819,4 @@
         border-radius: 10px;
     }
 </style>
-{% endblock %}
-
-{% block js %}
 {% endblock %}

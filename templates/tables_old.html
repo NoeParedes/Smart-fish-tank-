@@ -64,7 +64,6 @@
             </li>
         </ol>
     </nav>
-
     <div class="row g-4">
         <!-- Panel de navegación de tablas -->
         <div class="col-lg-4">
@@ -114,7 +113,6 @@
                 </div>
             </div>
         </div>
-
         <!-- Panel principal de datos -->
         <div class="col-lg-8">
             <div class="card card-ocean" style="border-radius: 20px; border: 2px solid #a7f3d0; min-height: 500px;">
@@ -282,79 +280,4 @@
         </div>
     </div>
 </div>
-
-<style>
-    /* Animaciones oceánicas para tables.html */
-    @keyframes bubble {
-        0% {
-            transform: translateY(20px) scale(0);
-            opacity: 0;
-        }
-        50% {
-            opacity: 1;
-        }
-        100% {
-            transform: translateY(-15px) scale(1);
-            opacity: 0;
-        }
-    }
-    
-    @keyframes wave-flow {
-        0% {
-            background-position: 0% 50%;
-        }
-        50% {
-            background-position: 100% 50%;
-        }
-        100% {
-            background-position: 0% 50%;
-        }
-    }
-    
-    /* Efectos de hover para las filas de tabla */
-    .table tbody tr {
-        transition: all 0.2s ease;
-    }
-    
-    .table tbody tr:hover {
-        transform: translateX(3px);
-        box-shadow: 0 3px 10px rgba(14, 116, 144, 0.1);
-    }
-    
-    /* Efectos para los badges de datos */
-    .badge {
-        transition: all 0.3s ease;
-    }
-    
-    .badge:hover {
-        transform: scale(1.05);
-    }
-    
-    /* Gradientes animados para headers */
-    .card-header {
-        background-size: 200% 200%;
-        animation: wave-flow 6s ease infinite;
-    }
-    
-    /* Efectos de focus para elementos interactivos */
-    .list-group-item:focus {
-        box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.25) !important;
-    }
-    
-    /* Responsive mejorado */
-    @media (max-width: 768px) {
-        .card-header {
-            padding: 1rem !important;
-        }
-        
-        .card-header h5 {
-            font-size: 1.1rem;
-        }
-        
-        .table th, .table td {
-            padding: 0.75rem 0.5rem;
-            font-size: 0.875rem;
-        }
-    }
-</style>
 {% endblock %}

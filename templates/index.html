@@ -3,9 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IRRIGO - Riego Inteligente</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="description" content="AquaZen - Sistema inteligente de monitoreo para peceras con IoT">
+    <meta name="keywords" content="pecera, IoT, monitoreo, acuicultura, sensores">
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <title>AquaZen - Pecera Inteligente</title>
+    <link rel="preload" href="https://cdn.tailwindcss.com" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdn.tailwindcss.com"></noscript>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"></noscript>
     <style>
         body {
             font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -23,17 +31,17 @@
             background-size: cover;
         }
         .tech-hover {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .tech-hover:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
         .animate-text {
-            animation: fadeIn 3s ease-in-out;
+            animation: fadeIn 0.5s ease-in-out;
         }
         @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
+            0% { opacity: 0; transform: translateY(10px); }
             100% { opacity: 1; transform: translateY(0); }
         }
     </style>
@@ -43,11 +51,16 @@
     <nav class="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center">
-                <i class="fas fa-tint text-3xl text-blue-600 mr-3"></i>
-                <span class="text-2xl font-bold text-blue-800">IRRIGO</span>
+                <svg class="w-10 h-10 text-cyan-600 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span class="text-2xl font-bold text-cyan-800">AquaZen</span>
             </div>
-            <div>
-                <a href="/login" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition duration-300">
+            <div class="flex items-center space-x-4">
+                <a href="/dashboard" class="text-cyan-600 hover:text-cyan-800 font-medium transition duration-200">
+                    Dashboard
+                </a>
+                <a href="/login" class="bg-cyan-600 text-white px-6 py-2 rounded-full hover:bg-cyan-700 transition duration-200">
                     Iniciar Sesión
                 </a>
             </div>
@@ -55,49 +68,82 @@
     </nav>
 
 <!-- Hero Section -->
-<header class="relative min-h-screen flex items-center bg-blue-900 text-white parallax-bg animate-text"
-        style="background-image: url('/api/placeholder/1920/1200');">
-    <!-- Fondo degradado encima de la imagen -->
-    <div class="absolute inset-0 bg-gradient-to-r from-blue-900 via-blue-600 to-transparent opacity-80"></div>
+<header class="relative min-h-screen flex items-center bg-gradient-to-br from-cyan-900 via-blue-800 to-teal-700 text-white animate-text">
+    <!-- Patrón de burbujas de fondo -->
+    <div class="absolute inset-0">
+        <div class="absolute top-20 left-10 w-4 h-4 bg-cyan-300 rounded-full opacity-30 animate-pulse"></div>
+        <div class="absolute top-40 right-20 w-6 h-6 bg-blue-300 rounded-full opacity-40 animate-pulse" style="animation-delay: 0.2s"></div>
+        <div class="absolute bottom-40 left-1/4 w-3 h-3 bg-teal-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.4s"></div>
+        <div class="absolute bottom-60 right-1/3 w-5 h-5 bg-cyan-200 rounded-full opacity-30 animate-pulse" style="animation-delay: 0.6s"></div>
+    </div>
     
     <div class="container mx-auto px-4 relative z-10 flex items-center justify-between">
         <!-- Texto de la sección -->
         <div class="max-w-3xl">
             <h1 class="text-6xl font-bold mb-6 leading-tight">
-                Revolución Tecnológica en Riego Agrícola
+                Revolución Tecnológica en Acuicultura Inteligente
             </h1>
-            <p class="text-2xl mb-10 text-gray-200">
-                Optimiza tus cultivos con tecnología de punta para una agricultura más eficiente y sostenible.
+            <p class="text-2xl mb-10 text-cyan-100">
+                Monitorea y optimiza tus peceras con tecnología IoT de última generación para un ecosistema acuático perfecto.
             </p>
+            <div class="flex space-x-4">
+                <a href="/dashboard" class="bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full font-semibold text-lg transition duration-200 shadow-lg">
+                    <i class="fas fa-tachometer-alt mr-2"></i>
+                    Ver Dashboard
+                </a>
+                <a href="/login" class="bg-transparent border-2 border-cyan-300 text-cyan-300 hover:bg-cyan-300 hover:text-cyan-900 px-8 py-4 rounded-full font-semibold text-lg transition duration-200">
+                    Comenzar
+                </a>
+            </div>
         </div>
 
-        <!-- Imagen con degradado para integración -->
-        <div class="w-full md:w-1/2 relative">
-            <img src="/static/assets/img/img5.jpeg" alt="Riego inteligente" class="object-cover w-full h-auto rounded-xl shadow-lg">
-
-            <!-- Degradado que se integra con la imagen -->
-            <div class="absolute inset-0 bg-gradient-to-t from-blue-900 via-transparent to-transparent opacity-50 rounded-xl"></div>
+        <!-- SVG de pecera -->
+        <div class="w-full md:w-1/2 flex justify-center relative">
+            <svg class="w-96 h-96 text-cyan-300" fill="currentColor" viewBox="0 0 400 300">
+                <!-- Pecera -->
+                <rect x="50" y="80" width="300" height="180" rx="20" ry="20" fill="rgba(6, 182, 212, 0.2)" stroke="currentColor" stroke-width="3"/>
+                <!-- Agua -->
+                <rect x="55" y="85" width="290" height="170" rx="17" ry="17" fill="rgba(6, 182, 212, 0.4)"/>
+                <!-- Peces -->
+                <ellipse cx="120" cy="150" rx="15" ry="8" fill="#f59e0b" opacity="0.8"/>
+                <ellipse cx="280" cy="120" rx="12" ry="6" fill="#ef4444" opacity="0.8"/>
+                <ellipse cx="200" cy="200" rx="18" ry="10" fill="#10b981" opacity="0.8"/>
+                <!-- Burbujas -->
+                <circle cx="100" cy="220" r="3" fill="white" opacity="0.6"/>
+                <circle cx="320" cy="200" r="2" fill="white" opacity="0.5"/>
+                <circle cx="250" cy="240" r="4" fill="white" opacity="0.7"/>
+                <!-- Plantas acuáticas -->
+                <path d="M80 250 Q85 230 90 250 Q95 230 100 250" stroke="#10b981" stroke-width="2" fill="none"/>
+                <path d="M300 240 Q305 220 310 240 Q315 220 320 240" stroke="#10b981" stroke-width="2" fill="none"/>
+            </svg>
         </div>
     </div>
 </header>
 
-
-
-
     <!-- Tecnología de Punta -->
     <section class="py-24 bg-white">
         <div class="container mx-auto px-4">
-            <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
-                Tecnología que Transforma la Agricultura
+            <h2 class="text-4xl font-bold text-center mb-16 text-cyan-900">
+                Tecnología IoT para Acuicultura Inteligente
             </h2>
             <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-blue-50 p-8 rounded-2xl tech-hover shadow-lg">
-                    <img src="/static/assets/img/img3.jpeg" alt="Sistemas de Riego" class="w-full h-64 object-cover rounded-xl mb-6">
-                    <h3 class="text-2xl font-semibold mb-4 text-blue-800">
-                        Sistemas de Riego Inteligente
+                <div class="bg-cyan-50 p-8 rounded-2xl tech-hover shadow-lg">
+                    <div class="flex justify-center mb-6">
+                        <svg class="w-32 h-32 text-cyan-600" fill="currentColor" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="80" fill="rgba(6, 182, 212, 0.2)" stroke="currentColor" stroke-width="4"/>
+                            <circle cx="100" cy="100" r="60" fill="rgba(6, 182, 212, 0.1)"/>
+                            <circle cx="85" cy="85" r="8" fill="#f59e0b"/>
+                            <circle cx="115" cy="75" r="6" fill="#ef4444"/>
+                            <circle cx="105" cy="120" r="10" fill="#10b981"/>
+                            <circle cx="70" cy="130" r="2" fill="white" opacity="0.8"/>
+                            <circle cx="140" cy="140" r="3" fill="white" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-semibold mb-4 text-cyan-800">
+                        Monitoreo de Peceras
                     </h3>
                     <p class="text-gray-700">
-                        Tecnología de vanguardia que optimiza el uso del agua con precisión milimétrica.
+                        Sensores avanzados que monitorean calidad del agua, nivel y humedad en tiempo real para mantener un ecosistema perfecto.
                     </p>
                 </div>
                 <div class="bg-green-50 p-8 rounded-2xl tech-hover shadow-lg">
@@ -112,10 +158,10 @@
                 <div class="bg-teal-50 p-8 rounded-2xl tech-hover shadow-lg">
                     <img src="/static/assets/img/img3.jpeg" alt="Análisis de Datos" class="w-full h-64 object-cover rounded-xl mb-6">
                     <h3 class="text-2xl font-semibold mb-4 text-teal-800">
-                        Análisis de Datos AI
+                        Análisis Predictivo
                     </h3>
                     <p class="text-gray-700">
-                        Optimiza el rendimiento de tus cultivos.
+                        Inteligencia artificial que predice y optimiza las condiciones de tu pecera automáticamente.
                     </p>
                 </div>
             </div>
@@ -137,22 +183,22 @@
                         <li class="flex items-start">
                             <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
                             <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Ahorro de Agua</h3>
-                                <p class="text-gray-700">Reduce hasta un 70% el consumo de agua mediante riego inteligente.</p>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Control de Calidad</h3>
+                                <p class="text-gray-700">Mantiene automáticamente los parámetros óptimos del agua para tus peces.</p>
                             </div>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
                             <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Productividad</h3>
-                                <p class="text-gray-700">Aumenta el rendimiento de tus cultivos con monitoreo preciso.</p>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Salud de los Peces</h3>
+                                <p class="text-gray-700">Monitoreo continuo que previene enfermedades y mantiene un ambiente saludable.</p>
                             </div>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
                             <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Sostenibilidad</h3>
-                                <p class="text-gray-700">Contribuye a la conservación del medio ambiente mediante agricultura de precisión.</p>
+                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Automatización</h3>
+                                <p class="text-gray-700">Sistema completamente automatizado que cuida tu pecera las 24 horas del día.</p>
                             </div>
                         </li>
                     </ul>
@@ -165,14 +211,14 @@
 <section class="py-24 bg-white">
     <div class="container mx-auto px-4">
         <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
-            Nuestra Tecnología en Acción
+            Sistema AquaZen en Funcionamiento
         </h2>
         <div class="grid md:grid-cols-4 gap-6">
-            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Drone Agrícola" class="w-full h-64 object-cover rounded-xl">
-            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Drone Agrícola" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Sistema de Monitoreo" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Sensores IoT" class="w-full h-64 object-cover rounded-xl">
 
-            <img src="{{ url_for('static', filename='assets/img/img2.jpeg') }}" alt="Sensores de Campo" class="w-full h-64 object-cover rounded-xl">
-            <img src="{{ url_for('static', filename='assets/img/img3.jpeg') }}" alt="Panel de Control" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img2.jpeg') }}" alt="Panel de Control" class="w-full h-64 object-cover rounded-xl">
+            <img src="{{ url_for('static', filename='assets/img/img3.jpeg') }}" alt="Dashboard Analytics" class="w-full h-64 object-cover rounded-xl">
         </div>
     </div>
 </section>
@@ -180,7 +226,7 @@
     <!-- Footer -->
     <footer class="bg-blue-900 text-white py-12">
         <div class="container mx-auto px-4 text-center">
-            <p>&copy; 2024 irrigo. Todos los derechos reservados.</p>
+            <p>&copy; 2024 AquaZen - Sistema Inteligente de Peceras. Todos los derechos reservados.</p>
         </div>
     </footer>
 </body>

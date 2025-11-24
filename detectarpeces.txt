@@ -1,0 +1,69 @@
+from flask import Flask, Response
+import cv2
+import cvlib as cv
+from cvlib.object_detection import draw_bbox
+
+app = Flask(__name__)
+
+# --- CONFIGURACIÓN ---
+# Pon aquí la URL de tu ESP32 (la del stream, no la web principal)
+URL_ESP32 = 'http://192.168.18.123:81/stream'
+
+def generar_frames():
+    # Conectamos con la cámara ESP32
+    cap = cv2.VideoCapture(URL_ESP32)
+
+    if not cap.isOpened():
+        print("Error: No se pudo conectar al ESP32.")
+        return
+
+    while True:
+        # 1. Leer la imagen del ESP32
+        success, frame = cap.read()
+        if not success:
+            break
+
+        # 2. DETECCIÓN DE OBJETOS (La parte inteligente)
+        # detect_common_objects usa YOLO para buscar 80 tipos de objetos
+        bbox, label, conf = cv.detect_common_objects(frame, confidence=0.25, model='yolov4-tiny')
+        
+        # Dibujar el cuadro en la imagen
+        output_image = draw_bbox(frame, bbox, label, conf)
+
+        # 3. Convertir la imagen procesada de nuevo a formato JPG para la web
+        ret, buffer = cv2.imencode('.jpg', output_image)
+        frame_bytes = buffer.tobytes()
+
+        # 4. Enviar la imagen al navegador (formato MJPEG)
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+@app.route('/')
+def index():
+    # Esta es la página web simple que verás
+    html = """
+    <html>
+        <head>
+            <title>Detección de Peces ESP32</title>
+            <style>
+                body { background: #222; color: white; text-align: center; font-family: sans-serif; }
+                img { border: 2px solid red; max-width: 100%; }
+            </style>
+        </head>
+        <body>
+            <h1>Vigilancia con IA</h1>
+            <p>Procesando video del ESP32 en tiempo real</p>
+            <img src="/video_feed">
+        </body>
+    </html>
+    """
+    return html
+
+@app.route('/video_feed')
+def video_feed():
+    # Esta ruta alimenta la etiqueta <img> con el video procesado
+    return Response(generar_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+if __name__ == '__main__':
+    # Iniciar el servidor en el puerto 5000
+    app.run(host='0.0.0.0', port=5000, debug=False)

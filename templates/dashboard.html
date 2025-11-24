@@ -1,49 +1,445 @@
 {% extends "base2.html" %}
 
-{% block title %}Dashboard - IRRIGO{% endblock %}
+{% block title %}Dashboard - AquaZen{% endblock %}
 
 {% block content %}
                 <div class="container-fluid px-4">
-                    <h1 class="mt-4">Dashboard</h1>
+                    <h1 class="mt-4 text-cyan-700"><i class="fas fa-tachometer-alt me-2"></i>Dashboard de Acuicultura</h1>
                     <ol class="breadcrumb mb-4">
-                        <li class="breadcrumb-item active">Dashboard</li>
+                        <li class="breadcrumb-item active text-cyan-600">Panel de Control</li>
                     </ol>
+                    <!-- Métricas principales de la pecera -->
                     <div class="row">
                         <div class="col-xl-3 col-md-6">
-                            <div class="card bg-primary text-white mb-4">
-                                <div class="card-body">Primary Card</div>
-                                <div class="card-footer d-flex align-items-center justify-content-between">
-                                    <a class="small text-white stretched-link" href="#">View Details</a>
+                            <div class="card bg-gradient-primary text-white mb-4 shadow-lg border-0">
+                                <div class="card-body d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="small text-white-75">Calidad del Agua</div>
+                                        <div class="fs-4 fw-bold">Excelente</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex align-items-center justify-content-between bg-primary-dark">
+                                    <a class="small text-white stretched-link" href="/charts">Ver Detalles</a>
                                     <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card bg-warning text-white mb-4">
-                                <div class="card-body">Warning Card</div>
-                                <div class="card-footer d-flex align-items-center justify-content-between">
-                                    <a class="small text-white stretched-link" href="#">View Details</a>
+                            <div class="card bg-gradient-info text-white mb-4 shadow-lg border-0">
+                                <div class="card-body d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                            <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="small text-white-75">Temperatura</div>
+                                        <div class="fs-4 fw-bold">24°C</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex align-items-center justify-content-between bg-info-dark">
+                                    <a class="small text-white stretched-link" href="/charts">Historial</a>
                                     <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card bg-success text-white mb-4">
-                                <div class="card-body">Success Card</div>
-                                <div class="card-footer d-flex align-items-center justify-content-between">
-                                    <a class="small text-white stretched-link" href="#">View Details</a>
+                            <div class="card bg-gradient-success text-white mb-4 shadow-lg border-0">
+                                <div class="card-body d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                            <path d="M5,4V7H10.5V19H13.5V7H19V4H5Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="small text-white-75">pH del Agua</div>
+                                        <div class="fs-4 fw-bold">7.2</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex align-items-center justify-content-between bg-success-dark">
+                                    <a class="small text-white stretched-link" href="/charts">Tendencias</a>
                                     <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card bg-danger text-white mb-4">
-                                <div class="card-body">Danger Card</div>
-                                <div class="card-footer d-flex align-items-center justify-content-between">
-                                    <a class="small text-white stretched-link" href="#">View Details</a>
+                            <div class="card bg-gradient-warning text-white mb-4 shadow-lg border-0">
+                                <div class="card-body d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                            <path d="M12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5M12,2A7,7 0 0,1 19,9C19,14.25 12,22 12,22C12,22 5,14.25 5,9A7,7 0 0,1 12,2Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="small text-white-75">Oxígeno Disuelto</div>
+                                        <div class="fs-4 fw-bold">8.5 mg/L</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex align-items-center justify-content-between bg-warning-dark">
+                                    <a class="small text-white stretched-link" href="/charts">Monitorear</a>
                                     <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    <!-- Sensores en tiempo real -->
+                    <div class="row">
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card bg-gradient-dark text-white mb-4 shadow-lg border-0">
+                                <div class="card-body d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                            <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="small text-white-75">Nivel de Agua</div>
+                                        <div class="fs-4 fw-bold"><span id="ultrasonicoValor">--</span> cm</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex align-items-center justify-content-between bg-dark">
+                                    <small class="text-white-75">Actualizado: <span id="ultrasonicoTs">--</span></small>
+                                    <div class="small text-white"><i class="fas fa-signal"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-9 col-md-6">
+                            <div class="card mb-4 shadow-lg border-0">
+                                <div class="card-header bg-gradient-primary text-white">
+                                    <i class="fas fa-fish me-2"></i>Estado General de la Pecera
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <span class="text-muted">Sistema de Monitoreo:</span>
+                                        <span class="badge bg-success fs-6">Activo</span>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <span class="text-muted">Última Alimentación:</span>
+                                        <span class="text-success fw-bold">Hace 2 horas</span>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <span class="text-muted">Peces Detectados:</span>
+                                        <span class="text-info fw-bold">3 activos</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección de Reportes PDF -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-4 shadow-lg border-0 bg-gradient-light">
+                                <div class="card-header bg-gradient-info text-white">
+                                    <i class="fas fa-file-pdf me-2"></i>Generación de Reportes Inteligentes
+                                    <span class="badge bg-warning text-dark ms-2">Nuevo</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h5 class="text-info mb-3">
+                                                <i class="fas fa-chart-line me-2"></i>Análisis Completo del Sistema
+                                            </h5>
+                                            <p class="text-muted mb-3">
+                                                Genera reportes profesionales en PDF con análisis detallado, gráficas y estadísticas 
+                                                {% if session.tipo_usuario == 'admin' %}
+                                                    completas de todos los sensores, incluyendo recomendaciones técnicas y alertas del sistema.
+                                                {% else %}
+                                                    de los principales parámetros de tu acuario con métricas relevantes para el cuidado de tus peces.
+                                                {% endif %}
+                                            </p>
+                                            
+                                            <!-- Características del reporte según tipo de usuario -->
+                                            {% if session.tipo_usuario == 'admin' %}
+                                            <div class="row text-center mb-3">
+                                                <div class="col-sm-3">
+                                                    <div class="text-primary">
+                                                        <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Gráficas Avanzadas</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-3">
+                                                    <div class="text-success">
+                                                        <i class="fas fa-cogs fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Análisis Técnico</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-3">
+                                                    <div class="text-warning">
+                                                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Alertas del Sistema</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-3">
+                                                    <div class="text-info">
+                                                        <i class="fas fa-lightbulb fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Recomendaciones</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% else %}
+                                            <div class="row text-center mb-3">
+                                                <div class="col-sm-4">
+                                                    <div class="text-primary">
+                                                        <i class="fas fa-thermometer-half fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Temperatura & Nivel</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-4">
+                                                    <div class="text-success">
+                                                        <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Tendencias</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-4">
+                                                    <div class="text-info">
+                                                        <i class="fas fa-clock fa-2x mb-2"></i>
+                                                        <p class="small fw-bold">Histórico</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <div class="bg-white rounded p-4 border border-info border-2">
+                                                <h6 class="text-center text-info mb-3">
+                                                    <i class="fas fa-download me-2"></i>Generar Reporte
+                                                </h6>
+                                                
+                                                <!-- Selector de período -->
+                                                <div class="mb-3">
+                                                    <label for="reportPeriod" class="form-label small fw-bold">Período de análisis:</label>
+                                                    <select class="form-select form-select-sm" id="reportPeriod">
+                                                        <option value="1">Último día</option>
+                                                        <option value="7" selected>Última semana</option>
+                                                        <option value="30">Último mes</option>
+                                                        {% if session.tipo_usuario == 'admin' %}
+                                                        <option value="90">Últimos 3 meses</option>
+                                                        {% endif %}
+                                                    </select>
+                                                </div>
+                                                
+                                                <!-- Vista previa del contenido -->
+                                                <div class="small text-muted mb-3">
+                                                    <strong>Incluirá:</strong><br>
+                                                    • Gráficas de tendencias<br>
+                                                    • Estadísticas resumidas<br>
+                                                    • Análisis de parámetros<br>
+                                                    {% if session.tipo_usuario == 'admin' %}
+                                                    • Alertas y recomendaciones<br>
+                                                    • Análisis de calidad del agua<br>
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <!-- Botón de descarga -->
+                                                <button type="button" class="btn btn-info btn-sm w-100 shadow" onclick="mostrarModalReporte()">
+                                                    <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+                                                    <div class="spinner-border spinner-border-sm ms-2 d-none" id="reportSpinner"></div>
+                                                </button>
+                                                
+                                                <!-- Información adicional -->
+                                                <div class="mt-3 p-2 bg-light rounded">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-info-circle me-1"></i>
+                                                        El reporte incluye análisis automático de todos los parámetros del sistema con recomendaciones personalizadas.
+                                                    </small>
+                                                </div>
+                                                
+                                                <div class="text-center mt-2">
+                                                    <small class="text-muted">
+                                                        {% if session.tipo_usuario == 'admin' %}
+                                                        <i class="fas fa-crown text-warning me-1"></i>Reporte Completo
+                                                        {% else %}
+                                                        <i class="fas fa-user text-primary me-1"></i>Reporte Básico
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal de Confirmación de Reporte -->
+                    <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header bg-info text-white">
+                                    <h5 class="modal-title" id="reportModalLabel">
+                                        <i class="fas fa-file-pdf me-2"></i>Generar Reporte AquaZen
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="text-info mb-3">📋 Contenido del Reporte</h6>
+                                            <ul class="list-unstyled">
+                                                <li class="mb-2"><i class="fas fa-chart-line text-success me-2"></i>Gráficas de tendencias de sensores</li>
+                                                <li class="mb-2"><i class="fas fa-calculator text-warning me-2"></i>Análisis estadístico completo</li>
+                                                <li class="mb-2"><i class="fas fa-thermometer-half text-danger me-2"></i>Monitoreo de temperatura y nivel</li>
+                                                {% if session.tipo_usuario == 'admin' %}
+                                                <li class="mb-2"><i class="fas fa-flask text-purple me-2"></i>Análisis de calidad del agua</li>
+                                                <li class="mb-2"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Alertas y recomendaciones técnicas</li>
+                                                <li class="mb-2"><i class="fas fa-cog text-secondary me-2"></i>Diagnóstico completo del sistema</li>
+                                                {% endif %}
+                                                <li class="mb-2"><i class="fas fa-clock text-info me-2"></i>Histórico por período seleccionado</li>
+                                            </ul>
+                                            
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                <strong>Periodo:</strong> <span id="modalPeriodText">Última semana</span><br>
+                                                <strong>Formato:</strong> PDF profesional con gráficos integrados<br>
+                                                <strong>Tamaño estimado:</strong> 2-5 MB
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-header bg-light">
+                                                    <h6 class="mb-0 text-center">
+                                                        {% if session.tipo_usuario == 'admin' %}
+                                                        <i class="fas fa-crown text-warning me-2"></i>Reporte Administrativo
+                                                        {% else %}
+                                                        <i class="fas fa-user text-primary me-2"></i>Reporte de Usuario
+                                                        {% endif %}
+                                                    </h6>
+                                                </div>
+                                                <div class="card-body text-center">
+                                                    {% if session.tipo_usuario == 'admin' %}
+                                                    <div class="text-success mb-2">
+                                                        <i class="fas fa-check-circle fa-3x"></i>
+                                                    </div>
+                                                    <p class="small">Acceso completo a todos los datos, métricas avanzadas y herramientas de diagnóstico.</p>
+                                                    {% else %}
+                                                    <div class="text-info mb-2">
+                                                        <i class="fas fa-fish fa-3x"></i>
+                                                    </div>
+                                                    <p class="small">Reporte optimizado con los datos más relevantes para el cuidado de tus peces.</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </button>
+                                    <button type="button" class="btn btn-info" onclick="confirmarGenerarReporte()">
+                                        <i class="fas fa-download me-2"></i>Generar y Descargar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <script>
+                    function cargarUltrasonico(){
+                        fetch('/get_latest_sensor_data')
+                          .then(r => r.json())
+                          .then(d => {
+                              if(d.nivel !== undefined && d.nivel !== null){
+                                  document.getElementById('ultrasonicoValor').textContent = d.nivel;
+                              } else if(d.error){
+                                  document.getElementById('ultrasonicoValor').textContent = '--';
+                              }
+                              if(d.timestamp){
+                                  document.getElementById('ultrasonicoTs').textContent = new Date(d.timestamp).toLocaleTimeString();
+                              }
+                          })
+                          .catch(_ => {});
+                    }
+                    
+                    function mostrarModalReporte() {
+                        const period = document.getElementById('reportPeriod').value;
+                        const periodTexts = {
+                            '1': 'Último día',
+                            '7': 'Última semana',
+                            '30': 'Último mes',
+                            '90': 'Últimos 3 meses'
+                        };
+                        
+                        document.getElementById('modalPeriodText').textContent = periodTexts[period];
+                        
+                        // Mostrar modal usando Bootstrap
+                        const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+                        modal.show();
+                    }
+                    
+                    function confirmarGenerarReporte() {
+                        // Cerrar modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+                        modal.hide();
+                        
+                        // Ejecutar generación
+                        generarReporte();
+                    }
+                    
+                    function generarReporte() {
+                        const period = document.getElementById('reportPeriod').value;
+                        const spinner = document.getElementById('reportSpinner');
+                        const btn = document.querySelector('button[onclick="mostrarModalReporte()"]');
+                        
+                        // Mostrar loading
+                        spinner.classList.remove('d-none');
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generando...';
+                        
+                        // Construir URL
+                        const url = `/generar_reporte?dias=${period}`;
+                        
+                        // Crear enlace temporal para descarga
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        
+                        // Simular descarga
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Restaurar botón después de un tiempo
+                        setTimeout(() => {
+                            spinner.classList.add('d-none');
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-file-pdf me-2"></i>Descargar PDF';
+                            
+                            // Mostrar mensaje de éxito
+                            showReportSuccess();
+                        }, 2000);
+                    }
+                    
+                    function showReportSuccess() {
+                        // Crear notificación de éxito
+                        const notification = document.createElement('div');
+                        notification.className = 'alert alert-success alert-dismissible fade show position-fixed';
+                        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                        notification.innerHTML = `
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>¡Reporte generado!</strong> El archivo PDF se ha descargado correctamente.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        
+                        document.body.appendChild(notification);
+                        
+                        // Auto-remover después de 5 segundos
+                        setTimeout(() => {
+                            if (notification.parentNode) {
+                                notification.remove();
+                            }
+                        }, 5000);
+                    }
+                    
+                    cargarUltrasonico();
+                    setInterval(cargarUltrasonico, 5000);
+                    </script>
 {% endblock%}

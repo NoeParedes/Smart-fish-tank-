@@ -8,20 +8,26 @@
         <meta name="author" content="" />
         <title>{% block title %}Pecera IoT{% endblock %}</title>
         <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
-        <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
-        <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='css/aquazen-theme.css') }}" rel="stylesheet" />
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
     </head>
     <body class="sb-nav-fixed">
-        <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+        <nav class="sb-topnav navbar navbar-expand text-white" style="background: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #0e7490 100%);">
             <!-- Navbar Brand-->
-            <a class="navbar-brand ps-3" href="{{ url_for('dashboard') }}">Pecera IoT</a>
+            <a class="navbar-brand ps-3 d-flex align-items-center" href="{{ url_for('dashboard') }}">
+                <svg class="w-8 h-8 me-2" fill="currentColor" viewBox="0 0 24 24" width="32" height="32">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span class="fw-bold">AquaZen</span>
+            </a>
             <!-- Sidebar Toggle-->
             <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
             <!-- Navbar Search-->
             <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
                 <div class="input-group">
-                    <input class="form-control" type="text" placeholder="Search for..." aria-label="Search for..." aria-describedby="btnNavbarSearch" />
-                    <button class="btn btn-primary" id="btnNavbarSearch" type="button"><i class="fas fa-search"></i></button>
+                    <input class="form-control" type="text" placeholder="Buscar..." aria-label="Search for..." aria-describedby="btnNavbarSearch" />
+                    <button class="btn btn-light" id="btnNavbarSearch" type="button"><i class="fas fa-search text-cyan-600"></i></button>
                 </div>
             </form>
             <!-- Navbar-->
@@ -40,81 +46,85 @@
         </nav>
         <div id="layoutSidenav">
             <div id="layoutSidenav_nav">
-                <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+                <nav class="sb-sidenav accordion" id="sidenavAccordion" style="background: linear-gradient(180deg, #164e63 0%, #0f766e 50%, #065f46 100%);">
                     <div class="sb-sidenav-menu">
                         <div class="nav">
-                            <div class="sb-sidenav-menu-heading">Core</div>
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                Dashboard
+                            <div class="sb-sidenav-menu-heading text-cyan-200">Sistema Principal</div>
+                            <a class="nav-link text-white" href="{{ url_for('dashboard') }}">
+                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-tachometer-alt"></i></div>
+                                Panel de Control
                             </a>
-                            <a class="nav-link" href="{{ url_for('aspersores') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-water"></i></div>
-                                Sprinklers
+                            <a class="nav-link text-white" href="{{ url_for('aspersores') }}">
+                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-fish"></i></div>
+                                Peceras
                             </a>
                             <!-- Mostrar "Users" solo si el tipo de usuario es "admin" -->
                         {% if tipo_usuario == "admin" %}
-                        <a class="nav-link" href="{{ url_for('users') }}">
-                            <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
-                            Users
+                        <a class="nav-link text-white" href="{{ url_for('users') }}">
+                            <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-users"></i></div>
+                            Usuarios
                         </a>
                         {% endif %}
                             
-                            <div class="sb-sidenav-menu-heading">Interface</div>
-                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
-                                <div class="sb-nav-link-icon"><i class="fas fa-columns"></i></div>
-                                Layouts
-                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                            </a>
-                            <div class="collapse" id="collapseLayouts" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
-                                <nav class="sb-sidenav-menu-nested nav">
-                                    <a class="nav-link" href="{{ url_for('layout_static') }}">Static Navigation</a>
-                                    <a class="nav-link" href="{{ url_for('layout_sidenav_light') }}">Light Sidenav</a>
-                                </nav>
+                            <div class="sb-sidenav-menu-heading text-cyan-200">Monitoreo</div>
+                            <!-- Sección de Gráficas con desplegables -->
+                            <div class="nav-item">
+                                <a class="nav-link text-white collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#chartsSubmenu" aria-expanded="false" aria-controls="chartsSubmenu">
+                                    <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-chart-line"></i></div>
+                                    Gráficas y Tendencias
+                                    <div class="sb-sidenav-collapse-arrow text-cyan-300"><i class="fas fa-angle-down"></i></div>
+                                </a>
+                                <div class="collapse" id="chartsSubmenu" data-bs-parent=".nav">
+                                    <nav class="sb-sidenav-menu-nested nav" style="background: rgba(6, 182, 212, 0.1); margin-left: 1rem; border-radius: 8px; margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}" 
+                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
+                                           onmouseover="this.style.background='rgba(6, 182, 212, 0.3)'; this.style.transform='translateX(5px)'"
+                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
+                                            <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-chart-area"></i></div>
+                                            Panel General
+                                        </a>
+                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=temperatura" 
+                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
+                                           onmouseover="this.style.background='rgba(251, 191, 36, 0.3)'; this.style.transform='translateX(5px)'"
+                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
+                                            <div class="sb-nav-link-icon text-yellow-400"><i class="fas fa-thermometer-half"></i></div>
+                                            Temperatura
+                                        </a>
+                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=humedad" 
+                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
+                                           onmouseover="this.style.background='rgba(59, 130, 246, 0.3)'; this.style.transform='translateX(5px)'"
+                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
+                                            <div class="sb-nav-link-icon text-blue-400"><i class="fas fa-tint"></i></div>
+                                            Humedad
+                                        </a>
+                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=ultrasonico" 
+                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
+                                           onmouseover="this.style.background='rgba(34, 197, 94, 0.3)'; this.style.transform='translateX(5px)'"
+                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
+                                            <div class="sb-nav-link-icon text-green-400"><i class="fas fa-ruler"></i></div>
+                                            Nivel de Agua
+                                        </a>
+                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=calidad" 
+                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
+                                           onmouseover="this.style.background='rgba(236, 72, 153, 0.3)'; this.style.transform='translateX(5px)'"
+                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
+                                            <div class="sb-nav-link-icon text-pink-400"><i class="fas fa-water"></i></div>
+                                            Calidad del Agua
+                                        </a>
+                                    </nav>
+                                </div>
                             </div>
-                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapsePages" aria-expanded="false" aria-controls="collapsePages">
-                                <div class="sb-nav-link-icon"><i class="fas fa-book-open"></i></div>
-                                Pages
-                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            {% if tipo_usuario == 'admin' %}
+                            <a class="nav-link text-white" href="{{ url_for('tables') }}">
+                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-database"></i></div>
+                                Base de Datos
                             </a>
-                            
-                            <div class="collapse" id="collapsePages" aria-labelledby="headingTwo" data-bs-parent="#sidenavAccordion">
-                                <nav class="sb-sidenav-menu-nested nav accordion" id="sidenavAccordionPages">
-                                    <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#pagesCollapseAuth" aria-expanded="false" aria-controls="pagesCollapseAuth">
-                                        Authentication
-                                        <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                                    </a>
-                                    <div class="collapse" id="pagesCollapseAuth" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordionPages">
-                                        <nav class="sb-sidenav-menu-nested nav">
-                                        </nav>
-                                    </div>
-                                    <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#pagesCollapseError" aria-expanded="false" aria-controls="pagesCollapseError">
-                                        Error
-                                        <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                                    </a>
-                                    <div class="collapse" id="pagesCollapseError" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordionPages">
-                                        <nav class="sb-sidenav-menu-nested nav">
-                                            <a class="nav-link" href="{{ url_for('error_401') }}">401 Page</a>
-                                            <a class="nav-link" href="{{ url_for('error_404') }}">404 Page</a>
-                                            <a class="nav-link" href="{{ url_for('error_500') }}">500 Page</a>
-                                        </nav>
-                                    </div>
-                                </nav>
-                            </div>
-                            <div class="sb-sidenav-menu-heading">Addons</div>
-                            <a class="nav-link" href="{{ url_for('charts') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-chart-area"></i></div>
-                                Charts
-                            </a>
-                            <a class="nav-link" href="{{ url_for('tables') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-table"></i></div>
-                                Tables
-                            </a>
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="sb-sidenav-footer">
-                        <div class="small">Logged in as: {{ nombre_usuario }}</div>
-                        Pecera IoT
+                    <div class="sb-sidenav-footer" style="background: linear-gradient(135deg, #0f766e 0%, #065f46 100%); border-top: 1px solid rgba(6, 182, 212, 0.3);">
+                        <div class="small text-cyan-200">Conectado como: {{ nombre_usuario }}</div>
+                        <div class="text-white fw-bold">AquaZen IoT</div>
                     </div>
                 </nav>
             </div>
@@ -123,14 +133,14 @@
                 <main>
                     {% block content %}{% endblock %}
                 </main>
-                <footer class="py-4 bg-light mt-auto">
+                <footer class="py-4 mt-auto" style="background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);">
                     <div class="container-fluid px-4">
                         <div class="d-flex align-items-center justify-content-between small">
-                            <div class="text-muted">Copyright &copy; IRRIGO 2024</div>
+                            <div class="text-cyan-700">Copyright © AquaZen 2024 - Tecnología en Acuicultura</div>
                             <div>
-                                <a href="#">Privacy Policy</a>
-                                &middot;
-                                <a href="#">Terms &amp; Conditions</a>
+                                <a href="#" class="text-cyan-600 text-decoration-none">Política de Privacidad</a>
+                                <span class="text-cyan-500">·</span>
+                                <a href="#" class="text-cyan-600 text-decoration-none">Términos y Condiciones</a>
                             </div>
                         </div>
                     </div>

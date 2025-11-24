@@ -1,9 +1,31 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 import sqlite3
 from datetime import datetime, timedelta, time, timezone
 import os
 import json
 import paho.mqtt.client as mqtt
+import matplotlib
+matplotlib.use('Agg')  # Backend sin GUI
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+import io
+import base64
+import numpy as np
+from statistics import mean, stdev
+from config import (
+    DATABASE,
+    MQTT_BROKER,
+    MQTT_PORT,
+    MQTT_TOPIC_HUMEDAD,
+    MQTT_TOPIC_ULTRASONICO,
+    MQTT_TOPIC_CALIDAD,
+    CAMERA_DEFAULT_URL
+)
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
@@ -12,13 +34,16 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # True solo si usas HTTPS
 
-# Configuración de SQLite y MQTT
-DATABASE = 'icc_database.db'
-MQTT_BROKER = os.environ.get('MQTT_BROKER', '192.168.1.9')
-MQTT_PORT = int(os.environ.get('MQTT_PORT', 1883))
-MQTT_TOPIC_HUMEDAD = os.environ.get('MQTT_TOPIC_HUMEDAD', 'pecera/humedad')
-MQTT_TOPIC_ULTRASONICO = os.environ.get('MQTT_TOPIC_ULTRASONICO', 'pecera/ultrasonico')
-MQTT_TOPIC_CALIDAD = os.environ.get('MQTT_TOPIC_CALIDAD', 'pecera/calidad')
+# Context processor global: variables de usuario + configuración cámara
+@app.context_processor
+def inject_user_context():
+    return {
+        'tipo_usuario': session.get('tipo_usuario'),
+        'nombre_usuario': session.get('nombre_usuario'),
+        'camera_default_url': CAMERA_DEFAULT_URL
+    }
+
+# Configuración centralizada en config.py (DATABASE, MQTT, CAMERA_DEFAULT_URL)
 
 # Cache en memoria del último mensaje recibido del broker
 latest_sensor_data = {
@@ -65,10 +90,17 @@ def init_db():
                 nombre VARCHAR(100) NOT NULL,
                 ubicacion VARCHAR(255),
                 estado TEXT CHECK(estado IN ('activo', 'inactivo')) NOT NULL DEFAULT 'inactivo',
+                camera_url VARCHAR(255),
                 fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
             )
         ''')
+        
+        # Agregar columna camera_url si la tabla ya existe
+        try:
+            cursor.execute("ALTER TABLE aspersores ADD COLUMN camera_url VARCHAR(255)")
+        except sqlite3.OperationalError:
+            pass  # La columna ya existe
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS programaciones_riego (
@@ -101,6 +133,16 @@ def init_db():
                 FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_calidad (
+                id_lectura INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_aspersor INTEGER NOT NULL,
+                calidad REAL,
+                fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_aspersor) REFERENCES aspersores(id_aspersor) ON DELETE CASCADE
+            )
+        ''')
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS lecturas_calidad (
                 id_lectura INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,17 +291,34 @@ def start_mqtt_listener():
             humedad = raw_value = nivel = calidad = None
 
             if msg.topic == MQTT_TOPIC_HUMEDAD:
-                humedad = data.get('humedad_suelo')
+                # Soportar múltiples formatos: {"humedad_suelo": X}, {"value": X}, {"humedad": X}
+                humedad = (data.get('humedad_suelo') or 
+                          data.get('value') or 
+                          data.get('humedad'))
                 raw_value = data.get('raw')
                 latest_sensor_data['humedad_suelo'] = humedad
                 latest_sensor_data['raw'] = raw_value
             elif msg.topic == MQTT_TOPIC_ULTRASONICO:
-                # Espera algo como {"nivel": valor_cm} o {"distancia": valor_cm}
-                nivel = data.get('nivel') or data.get('distancia')
+                # Soportar múltiples posibles claves del payload del sensor ultrasonico
+                # Ejemplos aceptados: {"nivel": X}, {"distancia": X}, {"distance_cm": X}, {"distance": X}
+                nivel = (data.get('nivel') or
+                         data.get('distancia') or
+                         data.get('distance_cm') or
+                         data.get('distance'))
+                # Si aún no se obtuvo, intentar detectar primer valor numérico
+                if nivel is None:
+                    for v in data.values():
+                        if isinstance(v, (int, float)):
+                            nivel = v
+                            break
+                if nivel is None:
+                    print(f"MQTT ultrasonico: payload sin clave reconocida {data}")
                 latest_sensor_data['nivel'] = nivel
             elif msg.topic == MQTT_TOPIC_CALIDAD:
-                # Espera algo como {"calidad": valor} o {"valor": valor}
-                calidad = data.get('calidad') if 'calidad' in data else data.get('valor')
+                # Soportar múltiples formatos: {"calidad": X}, {"valor": X}, {"value": X}
+                calidad = (data.get('calidad') or 
+                          data.get('valor') or 
+                          data.get('value'))
                 latest_sensor_data['calidad'] = calidad
 
             latest_sensor_data['timestamp'] = datetime.now(timezone.utc).isoformat()
@@ -446,18 +505,20 @@ def get_sensor_data():
 @app.route('/get_latest_sensor_data', methods=['GET'])
 def get_latest_sensor_data():
     """Devuelve el último valor recibido del broker MQTT."""
-    if (latest_sensor_data['humedad_suelo'] is None and
+    has_data = not (
+        latest_sensor_data['humedad_suelo'] is None and
         latest_sensor_data['raw'] is None and
         latest_sensor_data['nivel'] is None and
-        latest_sensor_data['calidad'] is None):
-        return jsonify({"error": "Sin datos aún"}), 404
-
+        latest_sensor_data['calidad'] is None
+    )
+    # Siempre devolver 200 para simplificar consumo en frontend
     return jsonify({
         "humedad_suelo": latest_sensor_data['humedad_suelo'],
         "raw": latest_sensor_data['raw'],
         "nivel": latest_sensor_data['nivel'],
         "calidad": latest_sensor_data['calidad'],
         "timestamp": latest_sensor_data['timestamp'],
+        "has_data": has_data,
         # compatibilidad con el JS existente
         "moisture1": latest_sensor_data['humedad_suelo'],
         "moisture2": latest_sensor_data['humedad_suelo'],
@@ -478,7 +539,7 @@ def sensor_data_humedad():
     if connection:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT humedad AS humedad, fecha_hora
+            SELECT humedad AS valor, fecha_hora AS timestamp
             FROM lecturas_humedad
             WHERE humedad IS NOT NULL
             ORDER BY fecha_hora DESC
@@ -487,8 +548,83 @@ def sensor_data_humedad():
         rows = cursor.fetchall()
         cursor.close()
         connection.close()
-        return jsonify([{"humedad": r["humedad"], "fecha_hora": r["fecha_hora"]} for r in rows])
+        return jsonify([{"valor": r["valor"], "timestamp": r["timestamp"]} for r in rows])
     return jsonify({"error": "Error al obtener lecturas de humedad"}), 500
+
+@app.route('/sensor_data/ultrasonico', methods=['GET'])
+def sensor_data_ultrasonico():
+    """Devuelve las últimas lecturas del sensor ultrasónico."""
+    limit = request.args.get('limit', 50)
+    try:
+        limit = int(limit)
+    except ValueError:
+        limit = 50
+
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT nivel AS distance_cm, fecha_hora AS timestamp
+            FROM lecturas_ultrasonico
+            WHERE nivel IS NOT NULL
+            ORDER BY fecha_hora DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify([{"distance_cm": r["distance_cm"], "timestamp": r["timestamp"]} for r in rows])
+    return jsonify({"error": "Error al obtener lecturas del sensor ultrasónico"}), 500
+
+@app.route('/sensor_data/temperatura', methods=['GET'])
+def sensor_data_temperatura():
+    """Devuelve las últimas lecturas de temperatura."""
+    limit = request.args.get('limit', 50)
+    try:
+        limit = int(limit)
+    except ValueError:
+        limit = 50
+
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT temperatura AS valor, fecha_hora AS timestamp
+            FROM lecturas_temperatura
+            WHERE temperatura IS NOT NULL
+            ORDER BY fecha_hora DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify([{"valor": r["valor"], "timestamp": r["timestamp"]} for r in rows])
+    return jsonify({"error": "Error al obtener lecturas de temperatura"}), 500
+
+@app.route('/sensor_data/calidad', methods=['GET'])
+def sensor_data_calidad():
+    """Devuelve las últimas lecturas de calidad del agua."""
+    limit = request.args.get('limit', 50)
+    try:
+        limit = int(limit)
+    except ValueError:
+        limit = 50
+
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT calidad AS valor, fecha_hora AS timestamp
+            FROM lecturas_calidad
+            WHERE calidad IS NOT NULL
+            ORDER BY fecha_hora DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify([{"valor": r["valor"], "timestamp": r["timestamp"]} for r in rows])
+    return jsonify({"error": "Error al obtener lecturas de calidad del agua"}), 500
 
 @app.route('/get_valve_states', methods=['GET'])
 def get_valve_states():
@@ -639,6 +775,10 @@ def logout():
 
 @app.route('/tables')
 def tables():
+    # Verificación de acceso: solo administradores
+    if 'id_usuario' not in session or session.get('tipo_usuario') != 'admin':
+        flash('Acceso restringido a administradores.', 'error')
+        return redirect(url_for('dashboard'))
     connection = get_db_connection()
     tablas = []
     selected_table = request.args.get('table')
@@ -710,7 +850,8 @@ def reset_lecturas(sensor_table):
     return redirect(url_for('tables', table=sensor_table))
 @app.route('/charts')
 def charts():
-    return render_template('charts.html')
+    sensor_type = request.args.get('sensor')  # Obtener el tipo de sensor desde la URL
+    return render_template('charts.html', sensor_type=sensor_type)
 
 #SCHEDULE
 @app.route('/save_schedule', methods=['POST'])
@@ -964,8 +1105,13 @@ def crear_aspersor(id_usuario):
     # Obtener datos del formulario
     nombre = request.form.get('nombre')
     ubicacion = request.form.get('ubicacion')
+    camera_url = request.form.get('camera_url', '').strip()  # Opcional
+    
+    # Si no se proporciona URL de cámara, usar la URL por defecto centralizada
+    if not camera_url:
+        camera_url = CAMERA_DEFAULT_URL
 
-    print(f"DEBUG - Datos del formulario - Nombre: {nombre}, Ubicacion: {ubicacion}")
+    print(f"DEBUG - Datos del formulario - Nombre: {nombre}, Ubicacion: {ubicacion}, Camera URL: {camera_url}")
 
     if not nombre or not ubicacion:
         flash('Todos los campos son obligatorios.', 'error')
@@ -979,11 +1125,11 @@ def crear_aspersor(id_usuario):
 
     try:
         cursor = connection.cursor()
-        print(f"DEBUG - Ejecutando INSERT con valores: id_usuario={id_usuario}, nombre={nombre}, ubicacion={ubicacion}")
+        print(f"DEBUG - Ejecutando INSERT con valores: id_usuario={id_usuario}, nombre={nombre}, ubicacion={ubicacion}, camera_url={camera_url}")
         cursor.execute("""
-            INSERT INTO aspersores (id_usuario, nombre, ubicacion)
-            VALUES (?, ?, ?)
-        """, (id_usuario, nombre, ubicacion))
+            INSERT INTO aspersores (id_usuario, nombre, ubicacion, camera_url)
+            VALUES (?, ?, ?, ?)
+        """, (id_usuario, nombre, ubicacion, camera_url))
         connection.commit()
         
         print(f"DEBUG - Aspersor creado exitosamente para usuario {id_usuario}")
@@ -1046,7 +1192,7 @@ def aspersores(id_usuario):
         if id_usuario == 'all':
             print("DEBUG - Admin viendo TODOS los aspersores")
             cursor.execute("""
-                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, u.nombre as nombre_usuario
+                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, a.camera_url, u.nombre as nombre_usuario
                 FROM aspersores a
                 LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
                 ORDER BY a.id_usuario, a.id_aspersor
@@ -1056,7 +1202,7 @@ def aspersores(id_usuario):
         else:
             print(f"DEBUG - Mostrando aspersores del usuario {id_usuario}")
             cursor.execute("""
-                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, u.nombre as nombre_usuario
+                SELECT a.id_aspersor, a.nombre, a.ubicacion, a.estado, a.id_usuario, a.camera_url, u.nombre as nombre_usuario
                 FROM aspersores a
                 LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
                 WHERE a.id_usuario = ?
@@ -1131,6 +1277,7 @@ def actualizar_aspersor():
         id_aspersor = data.get('id_aspersor')
         nombre = data.get('nombre')
         ubicacion = data.get('ubicacion')
+        camera_url = data.get('camera_url', '').strip()  # Opcional
 
         # Validar que los datos necesarios estén presentes
         if not id_aspersor or not nombre or not ubicacion:
@@ -1144,9 +1291,9 @@ def actualizar_aspersor():
                 cursor = connection.cursor()
                 cursor.execute("""
                     UPDATE aspersores 
-                    SET nombre = ?, ubicacion = ?
+                    SET nombre = ?, ubicacion = ?, camera_url = ?
                     WHERE id_aspersor = ? 
-                """, (nombre, ubicacion, id_aspersor))
+                """, (nombre, ubicacion, camera_url if camera_url else None, id_aspersor))
                 connection.commit()
                 cursor.close()
             except Error as e:
@@ -1243,6 +1390,421 @@ def cambiar_modo():
     # Por ejemplo, guardar el estado en la base de datos o en la sesión
 
     return jsonify({"message": f"Modo cambiado a {modo}"}), 200
+
+@app.route('/camara/<int:id_aspersor>', methods=['GET'])
+def ver_camara(id_aspersor):
+    if 'id_usuario' not in session:
+        return redirect(url_for('login'))
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error al conectar con la base de datos.', 'error')
+        return redirect(url_for('aspersores'))
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT a.nombre, a.camera_url, a.id_usuario 
+            FROM aspersores a 
+            WHERE a.id_aspersor = ?
+        """, (id_aspersor,))
+        aspersor = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not aspersor:
+            flash('Aspersor no encontrado.', 'error')
+            return redirect(url_for('aspersores'))
+        
+        # Verificar permisos
+        if session['tipo_usuario'] != 'admin' and aspersor['id_usuario'] != session['id_usuario']:
+            flash('No tienes permiso para ver esta cámara.', 'error')
+            return redirect(url_for('aspersores'))
+        
+        return render_template('camera.html', 
+                             aspersor=aspersor,
+                             id_aspersor=id_aspersor,
+                             nombre_usuario=session['nombre_usuario'],
+                             tipo_usuario=session['tipo_usuario'])
+    except Exception as e:
+        print(f"Error al obtener información del aspersor: {e}")
+        flash('Error al obtener la información del aspersor.', 'error')
+        return redirect(url_for('aspersores'))
+
+# Función para generar gráficos para PDF
+def generar_grafico_sensor(datos, titulo, ylabel, color='#0369A1', formato_fecha='%H:%M'):
+    if not datos:
+        return None
+    
+    plt.style.use('default')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Procesar datos
+    fechas = [datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')) for item in datos]
+    valores = [float(item.get('valor', item.get('distance_cm', 0))) for item in datos]
+    
+    ax.plot(fechas, valores, color=color, linewidth=2, marker='o', markersize=4)
+    ax.fill_between(fechas, valores, alpha=0.3, color=color)
+    
+    ax.set_title(titulo, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel('Tiempo', fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
+    ax.grid(True, alpha=0.3)
+    
+    # Formatear fechas en el eje X
+    if len(fechas) > 0:
+        if (fechas[-1] - fechas[0]).days > 1:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %H:%M'))
+        else:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter(formato_fecha))
+    
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    # Guardar como bytes
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
+    buffer.seek(0)
+    image_data = buffer.getvalue()
+    buffer.close()
+    plt.close()
+    
+    return image_data
+
+# Función para calcular estadísticas
+def calcular_estadisticas(datos):
+    if not datos:
+        return {}
+    
+    valores = [float(item.get('valor', item.get('distance_cm', 0))) for item in datos]
+    
+    return {
+        'promedio': round(mean(valores), 2) if valores else 0,
+        'maximo': round(max(valores), 2) if valores else 0,
+        'minimo': round(min(valores), 2) if valores else 0,
+        'desviacion': round(stdev(valores), 2) if len(valores) > 1 else 0,
+        'total_lecturas': len(valores)
+    }
+
+# Ruta para generar reporte PDF
+@app.route('/generar_reporte')
+def generar_reporte():
+    if 'id_usuario' not in session:
+        return redirect(url_for('login'))
+    
+    tipo_usuario = session.get('tipo_usuario', 'usuario')
+    nombre_usuario = session.get('nombre_usuario', 'Usuario')
+    
+    # Obtener parámetros
+    dias = request.args.get('dias', 7, type=int)
+    fecha_limite = datetime.now() - timedelta(days=dias)
+    
+    conn = sqlite3.connect('icc_database.db')
+    conn.row_factory = sqlite3.Row
+    
+    # Buffer para el PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Estilos personalizados
+    titulo_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=24,
+        textColor=colors.HexColor('#0369A1'),
+        spaceAfter=30,
+        alignment=1  # Centrado
+    )
+    
+    subtitulo_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#0F4C75'),
+        spaceAfter=20
+    )
+    
+    # Título principal
+    story.append(Paragraph('🐠 AquaZen - Reporte de Monitoreo', titulo_style))
+    story.append(Paragraph(f'Sistema de Acuicultura Inteligente', styles['Normal']))
+    story.append(Spacer(1, 20))
+    
+    # Información del reporte
+    info_data = [
+        ['Generado para:', nombre_usuario],
+        ['Tipo de usuario:', tipo_usuario.title()],
+        ['Período analizado:', f'Últimos {dias} días'],
+        ['Fecha de generación:', datetime.now().strftime('%d/%m/%Y %H:%M')]
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 3*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#E0F2FE')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#B4D4DA'))
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 30))
+    
+    # Obtener datos de sensores
+    sensores_config = {
+        'humedad': {
+            'nombre': 'Humedad Relativa',
+            'unidad': '%',
+            'color': '#059669',
+            'rango_optimo': (40, 70),
+            'campo_valor': 'humedad',
+            'campo_fecha': 'fecha_hora'
+        },
+        'ultrasonico': {
+            'nombre': 'Nivel del Agua',
+            'unidad': 'cm',
+            'color': '#2563EB',
+            'rango_optimo': (15, 25),
+            'campo_valor': 'nivel',
+            'campo_fecha': 'fecha_hora'
+        },
+        'calidad': {
+            'nombre': 'Calidad del Agua',
+            'unidad': 'pH',
+            'color': '#7C3AED',
+            'rango_optimo': (6.5, 8.0),
+            'campo_valor': 'calidad',
+            'campo_fecha': 'fecha_hora'
+        }
+    }
+    
+    # Resumen ejecutivo para admin
+    if tipo_usuario == 'admin':
+        story.append(Paragraph('📊 Resumen Ejecutivo', subtitulo_style))
+        
+        resumen_data = [['Sensor', 'Estado', 'Promedio', 'Lecturas', 'Observaciones']]
+        
+        for sensor, config in sensores_config.items():
+            tabla_sensor = f'lecturas_{sensor}'
+            try:
+                print(f"DEBUG RESUMEN: Consultando tabla {tabla_sensor}")
+                cursor = conn.execute(f"""
+                    SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
+                    FROM {tabla_sensor} 
+                    ORDER BY {config['campo_fecha']} DESC
+                    LIMIT 50
+                """)
+                
+                datos = [dict(row) for row in cursor.fetchall()]
+                print(f"DEBUG RESUMEN: {sensor} - Se encontraron {len(datos)} registros")
+                stats = calcular_estadisticas(datos)
+                
+                if stats and stats['total_lecturas'] > 0:
+                    promedio = stats['promedio']
+                    rango_min, rango_max = config['rango_optimo']
+                    
+                    if rango_min <= promedio <= rango_max:
+                        estado = '✅ Óptimo'
+                    elif promedio < rango_min:
+                        estado = '⚠️ Bajo'
+                    else:
+                        estado = '⚠️ Alto'
+                    
+                    observacion = f"Rango: {rango_min}-{rango_max} {config['unidad']}"
+                else:
+                    estado = '❌ Sin datos'
+                    promedio = 'N/A'
+                    observacion = 'Sin lecturas en el período'
+                
+                resumen_data.append([
+                    config['nombre'],
+                    estado,
+                    f"{promedio} {config['unidad']}" if promedio != 'N/A' else 'N/A',
+                    str(stats.get('total_lecturas', 0)),
+                    observacion
+                ])
+            except:
+                resumen_data.append([
+                    config['nombre'],
+                    '❌ Error',
+                    'N/A',
+                    '0',
+                    'Error al acceder a datos'
+                ])
+        
+        resumen_table = Table(resumen_data, colWidths=[2*inch, 1*inch, 1*inch, 1*inch, 1.5*inch])
+        resumen_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#B4D4DA')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')])
+        ]))
+        story.append(resumen_table)
+        story.append(Spacer(1, 30))
+    
+    # Análisis detallado por sensor
+    for sensor, config in sensores_config.items():
+        if tipo_usuario == 'usuario' and sensor == 'calidad':
+            continue  # Los usuarios no ven datos de calidad
+        
+        story.append(Paragraph(f'📈 {config["nombre"]}', subtitulo_style))
+        
+        tabla_sensor = f'lecturas_{sensor}'
+        try:
+            print(f"DEBUG: Consultando tabla {tabla_sensor}")
+            cursor = conn.execute(f"""
+                SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
+                FROM {tabla_sensor} 
+                ORDER BY {config['campo_fecha']} DESC
+                LIMIT 100
+            """)
+            
+            datos = [dict(row) for row in cursor.fetchall()]
+            print(f"DEBUG: {sensor} - Se encontraron {len(datos)} registros")
+            
+            if datos:
+                print(f"DEBUG: {sensor} - Primer registro: {datos[0]}")
+            else:
+                print(f"DEBUG: {sensor} - No se encontraron datos")
+            
+            
+            if datos:
+                # Generar gráfico
+                imagen_grafico = generar_grafico_sensor(
+                    datos, 
+                    f'{config["nombre"]} - Últimos {dias} días',
+                    f'{config["nombre"]} ({config["unidad"]})',
+                    config['color']
+                )
+                
+                if imagen_grafico:
+                    # Guardar imagen temporalmente con ruta absoluta
+                    import os
+                    temp_dir = os.path.dirname(os.path.abspath(__file__))
+                    img_path = os.path.join(temp_dir, f'temp_chart_{sensor}.png')
+                    
+                    with open(img_path, 'wb') as f:
+                        f.write(imagen_grafico)
+                    
+                    # Agregar imagen al PDF
+                    story.append(Image(img_path, width=6*inch, height=3.6*inch))
+                    story.append(Spacer(1, 10))
+                
+                # Estadísticas
+                stats = calcular_estadisticas(datos)
+                
+                stats_data = [
+                    ['Métrica', 'Valor'],
+                    ['Promedio', f"{stats['promedio']} {config['unidad']}"],
+                    ['Máximo', f"{stats['maximo']} {config['unidad']}"],
+                    ['Mínimo', f"{stats['minimo']} {config['unidad']}"],
+                    ['Total de lecturas', str(stats['total_lecturas'])]
+                ]
+                
+                if tipo_usuario == 'admin' and stats['total_lecturas'] > 1:
+                    stats_data.append(['Desviación estándar', f"{stats['desviacion']} {config['unidad']}"])
+                
+                stats_table = Table(stats_data, colWidths=[2*inch, 2*inch])
+                stats_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#D1D5DB'))
+                ]))
+                story.append(stats_table)
+            else:
+                story.append(Paragraph('No hay datos disponibles para este período.', styles['Normal']))
+        except Exception as e:
+            story.append(Paragraph(f'Error al procesar datos de {config["nombre"]}: {str(e)}', styles['Normal']))
+        
+        story.append(Spacer(1, 30))
+    
+    # Recomendaciones (solo para admin)
+    if tipo_usuario == 'admin':
+        story.append(Paragraph('💡 Recomendaciones y Alertas', subtitulo_style))
+        
+        recomendaciones = []
+        
+        for sensor, config in sensores_config.items():
+            tabla_sensor = f'lecturas_{sensor}'
+            try:
+                cursor = conn.execute(f"""
+                    SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
+                    FROM {tabla_sensor} 
+                    WHERE {config['campo_fecha']} >= ? 
+                    ORDER BY {config['campo_fecha']} DESC
+                    LIMIT 10
+                """, (fecha_limite.isoformat(),))
+                
+                datos = [dict(row) for row in cursor.fetchall()]
+                stats = calcular_estadisticas(datos)
+                
+                if stats and stats['total_lecturas'] > 0:
+                    promedio = stats['promedio']
+                    rango_min, rango_max = config['rango_optimo']
+                    
+                    if promedio < rango_min:
+                        recomendaciones.append(f"⚠️ {config['nombre']}: Valor bajo ({promedio} {config['unidad']}). Revisar sistema.")
+                    elif promedio > rango_max:
+                        recomendaciones.append(f"⚠️ {config['nombre']}: Valor alto ({promedio} {config['unidad']}). Ajustar parámetros.")
+                    else:
+                        recomendaciones.append(f"✅ {config['nombre']}: Funcionando correctamente.")
+            except:
+                recomendaciones.append(f"⚠️ {config['nombre']}: Error al evaluar datos.")
+        
+        if not recomendaciones:
+            recomendaciones.append("✅ Todos los sistemas funcionan dentro de parámetros normales.")
+        
+        for rec in recomendaciones:
+            story.append(Paragraph(rec, styles['Normal']))
+            story.append(Spacer(1, 10))
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    story.append(Paragraph('---', styles['Normal']))
+    story.append(Paragraph(
+        'Reporte generado automáticamente por AquaZen IoT System',
+        styles['Normal']
+    ))
+    
+    # Construir PDF
+    doc.build(story)
+    
+    # Limpiar archivos temporales DESPUÉS de construir el PDF
+    import glob
+    import os
+    temp_dir = os.path.dirname(os.path.abspath(__file__))
+    temp_files = glob.glob(os.path.join(temp_dir, 'temp_chart_*.png'))
+    for temp_file in temp_files:
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except Exception as e:
+            print(f"Error al eliminar archivo temporal {temp_file}: {e}")
+    
+    conn.close()
+    
+    # Preparar respuesta
+    buffer.seek(0)
+    filename = f'AquaZen_Reporte_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/pdf'
+    )
 
 if __name__ == '__main__':
     startup_tasks()

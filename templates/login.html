@@ -1,44 +1,482 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-light">
-    <div class="row shadow-lg" style="max-width: 900px; width: 100%;">
-        <!-- Columna izquierda: Imagen -->
-        <div class="col-md-6 d-none d-md-block bg-primary text-white p-5 rounded-start" style="background-image: url('/static/assets/img/background-login.jpg'); background-size: cover; background-position: center;">
-            <div class="d-flex flex-column h-100 justify-content-center">
-                <h1 class="fw-bold mb-4 text-center">¡Bienvenido!</h1>
-                <p class="text-center">Accede a tu cuenta para gestionar tus datos y proyectos.</p>
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center position-relative p-3" 
+     style="background: linear-gradient(135deg, #0c4a6e 0%, #0e7490 25%, #0891b2 50%, #06b6d4 75%, #67e8f9 100%); overflow: hidden;">
+    
+    <!-- Partículas animadas de fondo mejoradas -->
+    <div class="position-absolute w-100 h-100" style="overflow: hidden; z-index: 1;">
+        <div class="bubble bubble-1"></div>
+        <div class="bubble bubble-2"></div>
+        <div class="bubble bubble-3"></div>
+        <div class="bubble bubble-4"></div>
+        <div class="bubble bubble-5"></div>
+        <div class="bubble bubble-6"></div>
+        <div class="wave-animation"></div>
+    </div>
+    
+    <div class="row shadow-2xl position-relative" style="max-width: 900px; width: 100%; max-height: 85vh; z-index: 10; border-radius: 25px; overflow: hidden;">
+        <!-- Columna izquierda: Imagen temática -->
+        <div class="col-md-6 d-none d-md-flex text-white p-0 position-relative login-bg-pattern" 
+             style="background: linear-gradient(135deg, rgba(14, 116, 144, 0.95) 0%, rgba(8, 145, 178, 0.95) 100%); 
+                    background-size: cover; background-position: center;">
+            <div class="d-flex flex-column h-100 justify-content-center align-items-center p-3 text-center">
+                <!-- SVG de pecera -->
+                <div class="mb-3">
+                    <svg width="160" height="120" viewBox="0 0 300 200" fill="none">
+                        <rect x="30" y="60" width="240" height="120" rx="15" fill="rgba(255, 255, 255, 0.1)" stroke="white" stroke-width="3"/>
+                        <rect x="35" y="65" width="230" height="110" rx="12" fill="rgba(255, 255, 255, 0.05)"/>
+                        <!-- Peces -->
+                        <ellipse cx="100" cy="110" rx="15" ry="8" fill="#fbbf24" opacity="0.8"/>
+                        <ellipse cx="200" cy="90" rx="12" ry="6" fill="#ef4444" opacity="0.8"/>
+                        <ellipse cx="150" cy="140" rx="18" ry="10" fill="#10b981" opacity="0.8"/>
+                        <!-- Burbujas -->
+                        <circle cx="80" cy="160" r="3" fill="white" opacity="0.6" class="animate-pulse"/>
+                        <circle cx="220" cy="150" r="2" fill="white" opacity="0.5" class="animate-pulse"/>
+                        <circle cx="160" cy="170" r="4" fill="white" opacity="0.7" class="animate-pulse"/>
+                        <!-- Plantas -->
+                        <path d="M60 170 Q65 150 70 170 Q75 150 80 170" stroke="#10b981" stroke-width="2" fill="none"/>
+                        <path d="M220 165 Q225 145 230 165 Q235 145 240 165" stroke="#10b981" stroke-width="2" fill="none"/>
+                    </svg>
+                </div>
+                
+                <h1 class="fw-bold mb-2" style="font-size: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">AquaZen</h1>
+                <h4 class="mb-3 opacity-90">Sistema Inteligente</h4>
+                <p class="fs-6 opacity-80 mb-3">Tecnología avanzada para el monitoreo y control de ecosistemas acuáticos</p>
+                
+                <div class="d-flex align-items-center justify-content-center mt-4">
+                    <div class="me-4 text-center">
+                        <i class="fas fa-thermometer-half fs-3 mb-2 d-block opacity-75"></i>
+                        <small>Temperatura</small>
+                    </div>
+                    <div class="me-4 text-center">
+                        <i class="fas fa-tint fs-3 mb-2 d-block opacity-75"></i>
+                        <small>pH Control</small>
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-video fs-3 mb-2 d-block opacity-75"></i>
+                        <small>Visión IA</small>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <!-- Columna derecha: Formulario -->
-        <div class="col-md-6 bg-white p-5 rounded-end">
-            <h2 class="text-center mb-4">Iniciar sesión</h2>
-            <form method="POST" action="/login" class="mx-auto" style="max-width: 400px;">
-                <div class="mb-3">
-                    <label for="correo" class="form-label">Correo electrónico</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                        <input type="email" class="form-control" id="correo" name="correo" placeholder="example@domain.com" required>
+        <!-- Columna derecha: Formulario mejorado -->
+        <div class="col-md-6 p-0">
+            <div class="h-100 d-flex flex-column justify-content-center login-form-container" 
+                 style="background: linear-gradient(135deg, rgba(240, 253, 250, 0.95) 0%, rgba(204, 251, 241, 0.95) 50%, rgba(167, 243, 208, 0.95) 100%); 
+                        padding: 2rem; backdrop-filter: blur(10px);">
+                
+                <div class="text-center mb-3 login-header">
+                    <div class="d-inline-flex align-items-center justify-content-center mb-2 profile-icon" 
+                         style="width: 60px; height: 60px; background: linear-gradient(135deg, #0891b2, #06b6d4); 
+                                border-radius: 50%; box-shadow: 0 10px 30px rgba(8, 145, 178, 0.3); 
+                                transform: translateY(0); transition: all 0.3s ease;">
+                        <i class="fas fa-fish text-white" style="font-size: 1.5rem;"></i>
                     </div>
+                    <h3 class="text-teal-800 fw-bold mb-1 title-animated">Acceso al Sistema</h3>
+                    <p class="text-teal-600 subtitle-animated small">Ingresa tus credenciales para continuar</p>
+                    <div class="login-status-message" id="statusMessage" style="display: none;"></div>
                 </div>
-                <div class="mb-3">
-                    <label for="contrasena" class="form-label">Contraseña</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                        <input type="password" class="form-control" id="contrasena" name="contrasena" placeholder="********" required>
+                
+                <form method="POST" action="/login" class="mx-auto login-form" style="max-width: 350px;" id="loginForm">
+                    <div class="mb-3 input-group-enhanced">
+                        <label for="correo" class="form-label fw-semibold text-teal-800">
+                            <i class="fas fa-envelope me-2 text-teal-600"></i>Correo Electrónico
+                        </label>
+                        <div class="input-group-wrapper">
+                            <div class="input-group modern-input" style="border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                                <span class="input-group-text modern-icon" 
+                                      style="background: linear-gradient(135deg, #0891b2, #06b6d4); color: white; border: none; width: 50px;">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input type="email" class="form-control modern-input-field" id="correo" name="correo" 
+                                       placeholder="usuario@aquazen.com" required
+                                       style="border: 2px solid #67e8f9; border-left: none; padding: 12px; font-size: 0.95rem; 
+                                              transition: all 0.3s ease; background: rgba(255, 255, 255, 0.9);"
+                                       autocomplete="email">
+                            </div>
+                            <div class="input-validation" id="emailValidation"></div>
+                        </div>
                     </div>
+                    
+                    <div class="mb-3 input-group-enhanced">
+                        <label for="contrasena" class="form-label fw-semibold text-teal-800">
+                            <i class="fas fa-lock me-2 text-teal-600"></i>Contraseña de Seguridad
+                        </label>
+                        <div class="input-group-wrapper">
+                            <div class="input-group modern-input" style="border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                                <span class="input-group-text modern-icon" 
+                                      style="background: linear-gradient(135deg, #0891b2, #06b6d4); color: white; border: none; width: 50px;">
+                                    <i class="fas fa-key"></i>
+                                </span>
+                                <input type="password" class="form-control modern-input-field" id="contrasena" name="contrasena" 
+                                       placeholder="••••••••" required
+                                       style="border: 2px solid #67e8f9; border-left: none; padding: 12px; font-size: 0.95rem; 
+                                              transition: all 0.3s ease; background: rgba(255, 255, 255, 0.9);"
+                                       autocomplete="current-password">
+                                <span class="input-group-text password-toggle" style="background: transparent; border: 2px solid #67e8f9; border-left: none; cursor: pointer;">
+                                    <i class="fas fa-eye" id="togglePassword"></i>
+                                </span>
+                            </div>
+                            <div class="input-validation" id="passwordValidation"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="recordarme" 
+                                   style="border: 2px solid #67e8f9; border-radius: 4px;">
+                            <label class="form-check-label text-teal-700" for="recordarme">
+                                <i class="fas fa-remember me-1"></i>Mantener sesión activa
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn w-100 py-2 mb-2 login-submit-btn" id="submitBtn"
+                            style="background: linear-gradient(135deg, #0e7490 0%, #0891b2 50%, #06b6d4 100%); 
+                                   color: white; border: none; border-radius: 15px; font-weight: 600; 
+                                   font-size: 1rem; box-shadow: 0 6px 20px rgba(14, 116, 144, 0.4); 
+                                   transition: all 0.3s ease; position: relative; overflow: hidden;">
+                        <span class="btn-text">
+                            <i class="fas fa-sign-in-alt me-2"></i>Acceder al Sistema
+                        </span>
+                        <span class="btn-loading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Verificando...
+                        </span>
+                        <div class="btn-ripple"></div>
+                    </button>
+                    
+                    <div class="text-center">
+                        <a href="#" class="text-decoration-none text-teal-600 fw-semibold recover-link" 
+                           style="transition: all 0.3s ease;">
+                            <i class="fas fa-question-circle me-1"></i>¿Problemas para acceder?
+                        </a>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-2 security-notice">
+                    <small class="text-teal-600">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Conexión segura y protegida
+                    </small>
                 </div>
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="recordarme">
-                    <label class="form-check-label" for="recordarme">Recuérdame</label>
-                </div>
-                <button type="submit" class="btn btn-primary w-100 py-2">Ingresar</button>
-                <div class="mt-3 text-center">
-                    <a href="#" class="text-decoration-none">¿Olvidaste tu contraseña?</a>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+        50% { transform: translateY(-30px) rotate(180deg); opacity: 1; }
+    }
+    
+    @keyframes wave {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .bubble {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        animation: float 8s ease-in-out infinite;
+    }
+    
+    .bubble-1 { width: 20px; height: 20px; top: 10%; left: 10%; animation-delay: 0s; }
+    .bubble-2 { width: 15px; height: 15px; top: 20%; right: 15%; animation-delay: 2s; }
+    .bubble-3 { width: 25px; height: 25px; bottom: 30%; left: 20%; animation-delay: 1s; }
+    .bubble-4 { width: 12px; height: 12px; bottom: 15%; right: 25%; animation-delay: 3s; }
+    .bubble-5 { width: 18px; height: 18px; top: 60%; left: 5%; animation-delay: 1.5s; }
+    .bubble-6 { width: 22px; height: 22px; top: 40%; right: 5%; animation-delay: 2.5s; }
+    
+    .wave-animation {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: wave 3s linear infinite;
+    }
+    
+    .shadow-2xl {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    
+    .login-form-container {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    .login-header .profile-icon:hover {
+        transform: translateY(-5px) scale(1.1);
+        box-shadow: 0 15px 40px rgba(8, 145, 178, 0.4);
+    }
+    
+    .title-animated {
+        animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+    
+    .subtitle-animated {
+        animation: fadeInUp 0.8s ease-out 0.4s both;
+    }
+    
+    .input-group-enhanced {
+        animation: fadeInUp 0.8s ease-out 0.6s both;
+    }
+    
+    .modern-input:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .modern-input-field:focus {
+        border-color: #0891b2 !important;
+        box-shadow: 0 0 0 0.2rem rgba(8, 145, 178, 0.25) !important;
+        background: white !important;
+    }
+    
+    .login-submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(14, 116, 144, 0.6);
+    }
+    
+    .login-submit-btn:active {
+        transform: translateY(-1px);
+    }
+    
+    .btn-ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(0);
+        animation: ripple 0.6s linear;
+        pointer-events: none;
+    }
+    
+    @keyframes ripple {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+    
+    .password-toggle:hover {
+        background: rgba(8, 145, 178, 0.1) !important;
+    }
+    
+    .input-validation {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        transition: all 0.3s ease;
+    }
+    
+    .input-validation.success {
+        color: #10b981;
+    }
+    
+    .input-validation.error {
+        color: #ef4444;
+    }
+    
+    .recover-link:hover {
+        color: #0891b2 !important;
+        transform: translateY(-1px);
+    }
+    
+    .security-notice {
+        animation: fadeInUp 0.8s ease-out 1s both;
+    }
+    
+    .login-bg-pattern {
+        position: relative;
+    }
+    
+    .login-bg-pattern::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: 
+            radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 2px, transparent 2px),
+            radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+            radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.08) 3px, transparent 3px),
+            radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.06) 2px, transparent 2px);
+        background-size: 50px 50px, 30px 30px, 70px 70px, 40px 40px;
+        opacity: 0.7;
+        z-index: 1;
+    }
+    
+    .login-bg-pattern > * {
+        position: relative;
+        z-index: 2;
+    }
+    
+    .login-status-message {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .login-status-message.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .login-status-message.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('correo');
+    const passwordInput = document.getElementById('contrasena');
+    const submitBtn = document.getElementById('submitBtn');
+    const togglePassword = document.getElementById('togglePassword');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+    
+    // Email validation
+    emailInput.addEventListener('input', function() {
+        const emailValidation = document.getElementById('emailValidation');
+        const email = this.value;
+        
+        if (email.length === 0) {
+            emailValidation.textContent = '';
+            emailValidation.className = 'input-validation';
+            return;
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(email)) {
+            emailValidation.textContent = '✓ Email válido';
+            emailValidation.className = 'input-validation success';
+            this.style.borderColor = '#10b981';
+        } else {
+            emailValidation.textContent = '✗ Formato de email inválido';
+            emailValidation.className = 'input-validation error';
+            this.style.borderColor = '#ef4444';
+        }
+    });
+    
+    // Password validation
+    passwordInput.addEventListener('input', function() {
+        const passwordValidation = document.getElementById('passwordValidation');
+        const password = this.value;
+        
+        if (password.length === 0) {
+            passwordValidation.textContent = '';
+            passwordValidation.className = 'input-validation';
+            return;
+        }
+        
+        if (password.length >= 3) {
+            passwordValidation.textContent = '✓ Contraseña válida';
+            passwordValidation.className = 'input-validation success';
+            this.style.borderColor = '#10b981';
+        } else {
+            passwordValidation.textContent = '✗ La contraseña debe tener al menos 3 caracteres';
+            passwordValidation.className = 'input-validation error';
+            this.style.borderColor = '#ef4444';
+        }
+    });
+    
+    // Form submission with loading state
+    form.addEventListener('submit', function(e) {
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        
+        // Show loading state
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        submitBtn.disabled = true;
+        
+        // Create ripple effect
+        createRipple(e, submitBtn);
+        
+        // If there are validation errors, prevent submission
+        const emailValidation = document.getElementById('emailValidation');
+        const passwordValidation = document.getElementById('passwordValidation');
+        
+        if (emailValidation.classList.contains('error') || passwordValidation.classList.contains('error')) {
+            e.preventDefault();
+            showMessage('Por favor corrige los errores antes de continuar', 'error');
+            
+            // Reset button state
+            setTimeout(() => {
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+                submitBtn.disabled = false;
+            }, 1000);
+        }
+    });
+    
+    // Create ripple effect
+    function createRipple(event, button) {
+        const ripple = button.querySelector('.btn-ripple');
+        const rect = button.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = event.clientX - rect.left - size / 2;
+        const y = event.clientY - rect.top - size / 2;
+        
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        ripple.style.animation = 'ripple 0.6s linear';
+        
+        setTimeout(() => {
+            ripple.style.animation = '';
+        }, 600);
+    }
+    
+    // Show status message
+    function showMessage(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = `login-status-message ${type}`;
+        statusMessage.style.display = 'block';
+        
+        setTimeout(() => {
+            statusMessage.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Handle input focus effects
+    document.querySelectorAll('.modern-input-field').forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.parentElement.style.transform = 'translateY(-2px)';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.parentElement.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
 {% endblock %}
