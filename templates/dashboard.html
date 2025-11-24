@@ -4,9 +4,9 @@
 
 {% block content %}
                 <div class="container-fluid px-4">
-                    <h1 class="mt-4 text-cyan-700"><i class="fas fa-tachometer-alt me-2"></i>Dashboard de Acuicultura</h1>
+                    <h1 class="mt-4 text-dark"><i class="fas fa-tachometer-alt me-2 text-cyan-600"></i>Dashboard de Acuicultura</h1>
                     <ol class="breadcrumb mb-4">
-                        <li class="breadcrumb-item active text-cyan-600">Panel de Control</li>
+                        <li class="breadcrumb-item active text-cyan-700">Panel de Control</li>
                     </ol>
                     <!-- Métricas principales de la pecera -->
                     <div class="row">
@@ -113,18 +113,24 @@
                                 <div class="card-header bg-gradient-primary text-white">
                                     <i class="fas fa-fish me-2"></i>Estado General de la Pecera
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body bg-light">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="text-muted">Sistema de Monitoreo:</span>
+                                        <span class="text-dark fw-medium">Sistema de Monitoreo:</span>
                                         <span class="badge bg-success fs-6">Activo</span>
                                     </div>
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="text-muted">Última Alimentación:</span>
+                                        <span class="text-dark fw-medium">Última Alimentación:</span>
                                         <span class="text-success fw-bold">Hace 2 horas</span>
                                     </div>
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <span class="text-muted">Peces Detectados:</span>
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <span class="text-dark fw-medium">Peces Detectados:</span>
                                         <span class="text-info fw-bold">3 activos</span>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <span class="text-dark fw-medium">Cámara de Vigilancia:</span>
+                                        <a href="/camara/1" class="btn btn-info btn-sm">
+                                            <i class="fas fa-video me-1"></i>Ver Cámara
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -142,10 +148,10 @@
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-8">
-                                            <h5 class="text-info mb-3">
+                                            <h5 class="text-primary mb-3">
                                                 <i class="fas fa-chart-line me-2"></i>Análisis Completo del Sistema
                                             </h5>
-                                            <p class="text-muted mb-3">
+                                            <p class="text-dark mb-3">
                                                 Genera reportes profesionales en PDF con análisis detallado, gráficas y estadísticas 
                                                 {% if session.tipo_usuario == 'admin' %}
                                                     completas de todos los sensores, incluyendo recomendaciones técnicas y alertas del sistema.
@@ -160,25 +166,25 @@
                                                 <div class="col-sm-3">
                                                     <div class="text-primary">
                                                         <i class="fas fa-chart-bar fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Gráficas Avanzadas</p>
+                                                        <p class="small fw-bold text-dark">Gráficas Avanzadas</p>
                                                     </div>
                                                 </div>
                                                 <div class="col-sm-3">
                                                     <div class="text-success">
                                                         <i class="fas fa-cogs fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Análisis Técnico</p>
+                                                        <p class="small fw-bold text-dark">Análisis Técnico</p>
                                                     </div>
                                                 </div>
                                                 <div class="col-sm-3">
                                                     <div class="text-warning">
                                                         <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Alertas del Sistema</p>
+                                                        <p class="small fw-bold text-dark">Alertas del Sistema</p>
                                                     </div>
                                                 </div>
                                                 <div class="col-sm-3">
                                                     <div class="text-info">
                                                         <i class="fas fa-lightbulb fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Recomendaciones</p>
+                                                        <p class="small fw-bold text-dark">Recomendaciones</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -187,19 +193,19 @@
                                                 <div class="col-sm-4">
                                                     <div class="text-primary">
                                                         <i class="fas fa-thermometer-half fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Temperatura & Nivel</p>
+                                                        <p class="small fw-bold text-dark">Temperatura & Nivel</p>
                                                     </div>
                                                 </div>
                                                 <div class="col-sm-4">
                                                     <div class="text-success">
                                                         <i class="fas fa-chart-line fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Tendencias</p>
+                                                        <p class="small fw-bold text-dark">Tendencias</p>
                                                     </div>
                                                 </div>
                                                 <div class="col-sm-4">
                                                     <div class="text-info">
                                                         <i class="fas fa-clock fa-2x mb-2"></i>
-                                                        <p class="small fw-bold">Histórico</p>
+                                                        <p class="small fw-bold text-dark">Histórico</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -214,7 +220,7 @@
                                                 
                                                 <!-- Selector de período -->
                                                 <div class="mb-3">
-                                                    <label for="reportPeriod" class="form-label small fw-bold">Período de análisis:</label>
+                                                    <label for="reportPeriod" class="form-label small fw-bold text-dark">Período de análisis:</label>
                                                     <select class="form-select form-select-sm" id="reportPeriod">
                                                         <option value="1">Último día</option>
                                                         <option value="7" selected>Última semana</option>
@@ -226,8 +232,8 @@
                                                 </div>
                                                 
                                                 <!-- Vista previa del contenido -->
-                                                <div class="small text-muted mb-3">
-                                                    <strong>Incluirá:</strong><br>
+                                                <div class="small text-secondary mb-3">
+                                                    <strong class="text-dark">Incluirá:</strong><br>
                                                     • Gráficas de tendencias<br>
                                                     • Estadísticas resumidas<br>
                                                     • Análisis de parámetros<br>
@@ -245,14 +251,14 @@
                                                 
                                                 <!-- Información adicional -->
                                                 <div class="mt-3 p-2 bg-light rounded">
-                                                    <small class="text-muted">
-                                                        <i class="fas fa-info-circle me-1"></i>
+                                                    <small class="text-dark">
+                                                        <i class="fas fa-info-circle me-1 text-info"></i>
                                                         El reporte incluye análisis automático de todos los parámetros del sistema con recomendaciones personalizadas.
                                                     </small>
                                                 </div>
                                                 
                                                 <div class="text-center mt-2">
-                                                    <small class="text-muted">
+                                                    <small class="text-secondary">
                                                         {% if session.tipo_usuario == 'admin' %}
                                                         <i class="fas fa-crown text-warning me-1"></i>Reporte Completo
                                                         {% else %}

@@ -14,7 +14,7 @@ MQTT_TOPIC_ULTRASONICO = os.environ.get('MQTT_TOPIC_ULTRASONICO', 'pecera/ultras
 MQTT_TOPIC_CALIDAD = os.environ.get('MQTT_TOPIC_CALIDAD', 'pecera/calidad')
 
 # Cámara (stream ESP32)
-CAMERA_DEFAULT_URL = os.environ.get('CAMERA_DEFAULT_URL', 'http://192.168.18.123:81/stream')
+CAMERA_DEFAULT_URL = os.environ.get('CAMERA_DEFAULT_URL', 'http://172.20.10.3:81/stream')
 
 # Agrupados opcionalmente
 MQTT_TOPICS = {
