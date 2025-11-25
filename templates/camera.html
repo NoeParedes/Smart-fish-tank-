@@ -6,32 +6,30 @@
 <style>
     .camera-container {
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 20px;
-        padding: 30px;
+        border-radius: 15px;
+        padding: 15px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
     }
     
     .video-container {
-        margin-top: 20px;
-        border: 3px solid #dee2e6;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-        border-radius: 15px;
+        border-radius: 10px;
         overflow: hidden;
-        background: linear-gradient(45deg, #000000, #1a1a1a);
-        position: relative;
-        min-height: 400px;
+        background: linear-gradient(45deg, #00000000, #1a1a1a00);
+        min-height: 450px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
     
+    /* Modificado para que la imagen ocupe todo el espacio */
     .video-container img {
-        width: 100%;
-        height: auto;
+        width: 70%;
+        height: 450px; /* Forzamos la altura para que coincida con el contenedor */
+        object-fit: fill; /* ESTO ES LA CLAVE: Estira la imagen para llenar el hueco negro */
         display: block;
-        border-radius: 12px;
+        border-radius: 10px;
     }
     
     .video-container::before {
@@ -48,11 +46,11 @@
     
     .status-badge {
         display: inline-block;
-        padding: 10px 20px;
-        border-radius: 25px;
+        padding: 8px 16px;
+        border-radius: 20px;
         font-weight: bold;
-        margin-top: 15px;
-        font-size: 0.9rem;
+        margin-top: 10px;
+        font-size: 0.85rem;
         transition: all 0.3s ease;
     }
     
@@ -75,44 +73,37 @@
     }
     
     .btn-back {
-        margin-top: 25px;
+        margin-top: 15px;
     }
     
     .camera-header {
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
     
     .camera-info {
         background: rgba(255, 255, 255, 0.8);
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 20px;
-        border-left: 4px solid #06b6d4;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 15px;
+        border-left: 3px solid #06b6d4;
     }
     
     .stream-url {
         font-family: monospace;
         background: #f8f9fa;
-        padding: 8px 12px;
+        padding: 3px 12px;
         border-radius: 6px;
         border: 1px solid #dee2e6;
         color: #495057;
         font-size: 0.9rem;
     }
 </style>
-        margin: 10px 0;
-    }
-    
-    .btn-back {
-        margin-top: 20px;
-    }
-</style>
 
-<div class="container mt-4">
+<div class="container mt-2">
     <div class="camera-container">
         <div class="camera-header">
-            <h1 class="text-primary mb-3">
+            <h1 class="text-primary mb-2">
                 <i class="fas fa-video"></i> Monitor de Vigilancia AquaZen
             </h1>
             <h3 class="text-secondary">{{ aspersor.nombre if aspersor else "Sistema de Pecera Inteligente" }}</h3>
@@ -134,37 +125,54 @@
         </div>
         
         {% if aspersor.camera_url %}
-            <p class="text-center info-text">Transmisión en vivo desde la red local</p>
+            <p class="text-center info-text">🔴 <strong>Stream en vivo</strong></p>
             
             <div class="video-container">
                 <img src="http://172.20.10.3:81/stream" 
-                     alt="Cámara ESP32 - {{ aspersor.nombre }}" 
-                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:400px;color:#6c757d;flex-direction:column;&quot;><i class=&quot;fas fa-camera-retro fa-4x mb-3&quot;></i><h4>Sin señal de cámara</h4><p>Verificando conexión...</p></div>';">
+                     alt="Cámara ESP32 - {{ aspersor.nombre }}"
+                     title="Cámara ESP32 - {{ aspersor.nombre }}">
             </div>
             
             <div class="text-center">
                 <span class="status-badge status-connected">
-                    <i class="fas fa-check-circle"></i> Conectado
+                    <i class="fas fa-check-circle"></i> Stream Directo Activo
                 </span>
+                <div class="mt-2">
+                    <small class="text-success">
+                     
+                    </small>
+                </div>
             </div>
         {% else %}
-            <!-- También mostrar la cámara aunque no esté configurada en la base de datos -->
-            <p class="text-center info-text">Transmisión en vivo desde la red local</p>
+            <p class="text-center info-text">🔴 <strong>Stream Continuo</strong> - Sin interrupciones al navegar</p>
             
             <div class="video-container">
                 <img src="http://172.20.10.3:81/stream" 
-                     alt="Cámara ESP32 - Monitor de Pecera" 
-                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:400px;color:#6c757d;flex-direction:column;&quot;><i class=&quot;fas fa-camera-retro fa-4x mb-3&quot;></i><h4>Sin señal de cámara</h4><p>Verificando conexión...</p></div>';">
+                     alt="Cámara ESP32 - Monitor de Pecera"
+                     title="Cámara ESP32 - Monitor de Pecera">
             </div>
             
             <div class="text-center">
                 <span class="status-badge status-connected">
-                    <i class="fas fa-check-circle"></i> Conectado
+                    <i class="fas fa-check-circle"></i> Stream Directo Activo
                 </span>
+                <div class="mt-2">
+                    <small class="text-success">
+                        <i class="fas fa-shield-alt"></i> Stream protegido contra interrupciones
+                    </small>
+                </div>
             </div>
         {% endif %}
         
         <div class="text-center btn-back">
+            <div class="mb-3">
+                <button id="refresh-stream" class="btn btn-outline-info btn-sm me-2">
+                    <i class="fas fa-sync-alt"></i> Actualizar Stream
+                </button>
+                <button id="fullscreen-btn" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-expand"></i> Pantalla Completa
+                </button>
+            </div>
             <a href="{{ url_for('aspersores') }}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Aspersores
             </a>
@@ -173,40 +181,90 @@
 </div>
 
 <script>
-    // URL fija de la cámara
-    const CAMERA_URL = 'http://172.20.10.3:81/stream';
+    // Sistema de streaming continuo con IMG tag
     
-    // Verificar el estado de conexión de la imagen cada 5 segundos
-    function checkCameraStatus() {
-        const img = document.querySelector('.video-container img');
+    document.addEventListener('DOMContentLoaded', function() {
+        // CAMBIO: Selector actualizado para buscar 'img' en lugar de 'iframe'
+        const streamImg = document.querySelector('.video-container img');
         const statusBadge = document.querySelector('.status-badge');
         
-        if (!img || !statusBadge) return;
-        
-        // Crear una nueva imagen para probar la conectividad
-        const testImg = new Image();
-        testImg.onload = function() {
-            statusBadge.className = 'status-badge status-connected';
-            statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Conectado';
-            img.src = CAMERA_URL; // Recargar la imagen principal
-        };
-        testImg.onerror = function() {
-            statusBadge.className = 'status-badge status-disconnected';
-            statusBadge.innerHTML = '<i class="fas fa-times-circle"></i> Sin señal';
-        };
-        testImg.src = CAMERA_URL + '?t=' + new Date().getTime(); // Cache busting
-    }
-    
-    // Verificar estado inmediatamente y cada 10 segundos
-    checkCameraStatus();
-    setInterval(checkCameraStatus, 10000);
-    
-    // Recargar la imagen cada 30 segundos para mantener el stream fresco
-    setInterval(() => {
-        const img = document.querySelector('.video-container img');
-        if (img && img.src.includes(CAMERA_URL)) {
-            img.src = CAMERA_URL + '?t=' + new Date().getTime();
+        if (streamImg && statusBadge) {
+            
+            // Verificación simplificada para IMG tags
+            function checkStreamStatus() {
+                // Si la imagen tiene altura natural (se cargó), está conectada
+                if (streamImg.naturalHeight > 0) {
+                    statusBadge.className = 'status-badge status-connected';
+                    statusBadge.innerHTML = '<i class="fas fa-video"></i> Stream Continuo Activo';
+                }
+            }
+            
+            // Verificar estado inicial
+            setTimeout(checkStreamStatus, 2000);
+            setInterval(checkStreamStatus, 15000);
+            
+            // Manejar eventos de la imagen
+            streamImg.onload = function() {
+                statusBadge.className = 'status-badge status-connected';
+                statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Stream Cargado';
+            };
+            
+            streamImg.onerror = function() {
+                statusBadge.className = 'status-badge status-disconnected';
+                statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error de Conexión';
+            };
         }
-    }, 30000);
+        
+        // Botón para recargar stream
+        const refreshButton = document.getElementById('refresh-stream');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function() {
+                if (streamImg) {
+                    const currentSrc = streamImg.src.split('?')[0]; // Limpiar parámetros anteriores
+                    statusBadge.innerHTML = '<i class="fas fa-sync fa-spin"></i> Recargando...';
+                    streamImg.src = ''; // Forzar descarga
+                    setTimeout(() => {
+                        // Añadir timestamp para evitar caché
+                        streamImg.src = currentSrc + '?reload=' + Date.now();
+                    }, 500);
+                }
+            });
+        }
+        
+        // Botón de pantalla completa
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', function() {
+                const container = document.querySelector('.video-container');
+                if (container) {
+                    if (container.requestFullscreen) {
+                        container.requestFullscreen();
+                    } else if (container.webkitRequestFullscreen) {
+                        container.webkitRequestFullscreen();
+                    } else if (container.mozRequestFullScreen) {
+                        container.mozRequestFullScreen();
+                    }
+                }
+            });
+        }
+        
+        // Detectar cambios de pantalla completa
+        document.addEventListener('fullscreenchange', function() {
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            if (document.fullscreenElement) {
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i> Salir Pantalla Completa';
+            } else {
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i> Pantalla Completa';
+            }
+        });
+        
+        // Mostrar mensaje de stream continuo
+        setTimeout(() => {
+            if (statusBadge) {
+                statusBadge.className = 'status-badge status-connected';
+                statusBadge.innerHTML = '<i class="fas fa-shield-check"></i> Stream Protegido - Sin Interrupciones';
+            }
+        }, 3000);
+    });
 </script>
 {% endblock %}

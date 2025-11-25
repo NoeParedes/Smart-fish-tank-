@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitar Servicio - AquaZen</title>
+    <meta name="description" content="Solicita tu sistema inteligente de monitoreo IoT para peceras y acuarios.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Stripe JS for payments -->
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'swim': 'swim 15s linear infinite',
+                        'swim-reverse': 'swimReverse 12s linear infinite',
+                        'bubble': 'bubble 8s infinite ease-in-out',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        swim: {
+                            '0%': { transform: 'translateX(-100px) scaleX(-1)' },
+                            '50%': { transform: 'translateX(50vw) scaleX(-1)' },
+                            '51%': { transform: 'translateX(50vw) scaleX(1)' },
+                            '100%': { transform: 'translateX(-100px) scaleX(1)' },
+                        },
+                        swimReverse: {
+                            '0%': { transform: 'translateX(100vw) scaleX(1)' },
+                            '50%': { transform: 'translateX(-100px) scaleX(1)' },
+                            '51%': { transform: 'translateX(-100px) scaleX(-1)' },
+                            '100%': { transform: 'translateX(100vw) scaleX(-1)' },
+                        },
+                        bubble: {
+                            '0%': { transform: 'translateY(100vh) scale(0)', opacity: '0' },
+                            '10%': { opacity: '1' },
+                            '90%': { opacity: '1' },
+                            '100%': { transform: 'translateY(-100px) scale(1)', opacity: '0' },
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 20px rgba(6, 182, 212, 0.5)' },
+                            '100%': { boxShadow: '0 0 40px rgba(6, 182, 212, 0.8)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fish-animation {
+            position: fixed;
+            font-size: 2rem;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .fish-1 {
+            top: 20%;
+            animation: swim 15s linear infinite;
+            color: #06b6d4;
+        }
+        
+        .fish-2 {
+            top: 60%;
+            animation: swim-reverse 12s linear infinite;
+            color: #0891b2;
+            animation-delay: -3s;
+        }
+        
+        .fish-3 {
+            top: 80%;
+            animation: swim 20s linear infinite;
+            color: #22d3ee;
+            animation-delay: -8s;
+        }
+        
+        .bubble-animation {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.3), transparent);
+            border-radius: 50%;
+            animation: bubble 8s infinite ease-in-out;
+        }
+        
+        .form-ocean {
+            background: linear-gradient(135deg, rgba(236, 254, 255, 0.9) 0%, rgba(207, 250, 254, 0.9) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        
+        .input-ocean {
+            border: 2px solid #e0f2fe;
+            background: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+        }
+        
+        .input-ocean:focus {
+            border-color: #06b6d4;
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+            background: white;
+        }
+        
+        .btn-ocean {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #22d3ee 100%);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-ocean:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);
+        }
+        
+        .plan-card {
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .plan-card.selected {
+            border-color: #06b6d4;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        /* Animación de agua de fondo */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: float 8s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="font-sans bg-gradient-to-br from-cyan-50 to-blue-50 min-h-screen overflow-x-hidden">
+    <!-- Animaciones de peces -->
+    <div class="fish-animation fish-1">🐠</div>
+    <div class="fish-animation fish-2">🐟</div>
+    <div class="fish-animation fish-3">🐡</div>
+    
+    <!-- Burbujas animadas -->
+    <div class="bubble-animation" style="left: 10%; animation-delay: 0s;"></div>
+    <div class="bubble-animation" style="left: 30%; animation-delay: 2s;"></div>
+    <div class="bubble-animation" style="left: 50%; animation-delay: 4s;"></div>
+    <div class="bubble-animation" style="left: 70%; animation-delay: 6s;"></div>
+    <div class="bubble-animation" style="left: 90%; animation-delay: 1s;"></div>
+
+    <!-- Header -->
+    <nav class="bg-white/90 backdrop-blur-md shadow-lg fixed w-full top-0 z-50 border-b border-cyan-100">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-10 h-10 text-cyan-600" fill="currentColor" viewBox="0 0 100 100">
+                        <rect x="10" y="20" width="80" height="45" rx="8" fill="rgba(6, 182, 212, 0.2)" stroke="currentColor" stroke-width="2"/>
+                        <rect x="13" y="23" width="74" height="39" rx="6" fill="rgba(6, 182, 212, 0.1)"/>
+                        <ellipse cx="35" cy="40" rx="6" ry="4" fill="#f59e0b" opacity="0.9"/>
+                        <ellipse cx="65" cy="35" rx="4" ry="3" fill="#ef4444" opacity="0.9"/>
+                        <circle cx="25" cy="55" r="1.5" fill="currentColor" opacity="0.8"/>
+                        <circle cx="75" cy="50" r="1" fill="currentColor" opacity="0.6"/>
+                    </svg>
+                    <span class="text-2xl font-bold text-cyan-800">AquaZen</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-cyan-600 hover:text-cyan-800 font-medium transition duration-200">
+                        <i class="fas fa-home mr-2"></i>Inicio
+                    </a>
+                    <a href="/login" class="bg-cyan-600 text-white px-6 py-2 rounded-full hover:bg-cyan-700 transition duration-200">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Acceder
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-16 relative overflow-hidden">
+        <div class="container mx-auto px-6 text-center">
+            <div class="mb-8">
+                <h1 class="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+                    Solicita tu
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">
+                        AquaZen IoT
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                    Completa el formulario y obtén tu sistema inteligente de monitoreo para acuarios. 
+                    ¡Mantén a tus peces felices y saludables con tecnología de vanguardia!
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Formulario Principal -->
+    <section class="py-16 relative">
+        <div class="container mx-auto px-6 max-w-6xl">
+            <form id="subscriptionForm" class="space-y-8">
+                <!-- Selección de Plan -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <h2 class="text-3xl font-bold text-cyan-800 mb-2 text-center">
+                        <i class="fas fa-gem mr-3"></i>Elige tu Plan
+                    </h2>
+                    <p class="text-cyan-600 text-center mb-8">Selecciona el plan que mejor se adapte a tus necesidades</p>
+                    
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <!-- Plan Mensual -->
+                        <div class="plan-card border-2 border-gray-200 rounded-2xl p-6 cursor-pointer" data-plan="monthly" data-price="14.99">
+                            <div class="text-center">
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">Mensual</h3>
+                                <div class="text-3xl font-bold text-cyan-600 mb-4">
+                                    $14.99<span class="text-lg font-normal text-gray-500">/mes</span>
+                                </div>
+                                <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Monitoreo 24/7
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Alertas en tiempo real
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Dashboard web completo
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Cámara HD incluida
+                                    </li>
+                                </ul>
+                                <div class="plan-check hidden text-cyan-600">
+                                    <i class="fas fa-check-circle text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Plan Semestral -->
+                        <div class="plan-card border-2 border-gray-200 rounded-2xl p-6 cursor-pointer" data-plan="biannual" data-price="12.99">
+                            <div class="text-center">
+                                <div class="bg-cyan-100 text-cyan-700 px-3 py-1 rounded-full text-xs font-bold mb-4 inline-block">
+                                    Ahorra 15%
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">Semestral</h3>
+                                <div class="text-3xl font-bold text-cyan-600 mb-4">
+                                    $12.99<span class="text-lg font-normal text-gray-500">/mes</span>
+                                </div>
+                                <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Todo del plan mensual
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Reportes avanzados
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Alimentador automático
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Soporte prioritario
+                                    </li>
+                                </ul>
+                                <div class="plan-check hidden text-cyan-600">
+                                    <i class="fas fa-check-circle text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Plan Anual -->
+                        <div class="plan-card border-2 border-gray-200 rounded-2xl p-6 cursor-pointer relative" data-plan="annual" data-price="9.99">
+                            <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-1 rounded-full text-xs font-bold">
+                                MEJOR OFERTA
+                            </div>
+                            <div class="text-center">
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">Anual</h3>
+                                <div class="text-3xl font-bold text-cyan-600 mb-4">
+                                    $9.99<span class="text-lg font-normal text-gray-500">/mes</span>
+                                </div>
+                                <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Todo de planes anteriores
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Historial ilimitado
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Descuentos en hardware
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <i class="fas fa-check text-green-500"></i> Instalación gratuita
+                                    </li>
+                                </ul>
+                                <div class="plan-check hidden text-cyan-600">
+                                    <i class="fas fa-check-circle text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="selectedPlan" name="plan" required>
+                    <input type="hidden" id="selectedPrice" name="price" required>
+                </div>
+
+                <!-- Información Personal -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <h2 class="text-3xl font-bold text-cyan-800 mb-2">
+                        <i class="fas fa-user mr-3"></i>Información Personal
+                    </h2>
+                    <p class="text-cyan-600 mb-8">Necesitamos estos datos para procesar tu solicitud</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-user mr-2"></i>Nombre Completo
+                            </label>
+                            <input type="text" name="fullName" required 
+                                   class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                   placeholder="Ej: Juan Pérez García">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-envelope mr-2"></i>Correo Electrónico
+                            </label>
+                            <input type="email" name="email" required 
+                                   class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                   placeholder="tu-email@ejemplo.com">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-phone mr-2"></i>Teléfono
+                            </label>
+                            <input type="tel" name="phone" required 
+                                   class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                   placeholder="(+51) 999 888 777">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-id-card mr-2"></i>Documento de Identidad
+                            </label>
+                            <input type="text" name="documentId" required 
+                                   class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                   placeholder="DNI / CE / Pasaporte">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Instalación -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <h2 class="text-3xl font-bold text-cyan-800 mb-2">
+                        <i class="fas fa-map-marker-alt mr-3"></i>Detalles de Instalación
+                    </h2>
+                    <p class="text-cyan-600 mb-8">Danos información sobre dónde instalaremos tu sistema</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-home mr-2"></i>Dirección Completa
+                            </label>
+                            <textarea name="address" required rows="3"
+                                     class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                     placeholder="Calle, número, distrito, ciudad, provincia"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-fish mr-2"></i>Tipo de Acuario
+                            </label>
+                            <select name="aquariumType" required 
+                                    class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none">
+                                <option value="">Selecciona el tipo</option>
+                                <option value="tropical">Peces Tropicales</option>
+                                <option value="marine">Acuario Marino</option>
+                                <option value="planted">Acuario Plantado</option>
+                                <option value="cichlid">Cíclidos</option>
+                                <option value="betta">Betta</option>
+                                <option value="goldfish">Goldfish</option>
+                                <option value="other">Otro</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-ruler mr-2"></i>Tamaño del Acuario
+                            </label>
+                            <select name="tankSize" required 
+                                    class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none">
+                                <option value="">Selecciona el tamaño</option>
+                                <option value="small">Pequeño (hasta 50L)</option>
+                                <option value="medium">Mediano (50L - 200L)</option>
+                                <option value="large">Grande (200L - 500L)</option>
+                                <option value="xlarge">Extra Grande (500L+)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-cyan-700 font-semibold mb-2">
+                                <i class="fas fa-comment mr-2"></i>Comentarios Adicionales
+                            </label>
+                            <textarea name="comments" rows="4"
+                                     class="input-ocean w-full px-4 py-3 rounded-xl focus:outline-none"
+                                     placeholder="Cuéntanos sobre tus peces, necesidades especiales, horarios de instalación preferidos, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Pago -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <h2 class="text-3xl font-bold text-cyan-800 mb-2">
+                        <i class="fas fa-credit-card mr-3"></i>Método de Pago
+                    </h2>
+                    <p class="text-cyan-600 mb-8">Selecciona tu método de pago preferido</p>
+                    
+                    <div class="grid md:grid-cols-3 gap-4 mb-8">
+                        <label class="payment-method cursor-pointer">
+                            <input type="radio" name="paymentMethod" value="card" class="sr-only">
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all hover:border-cyan-300">
+                                <i class="fas fa-credit-card text-3xl text-cyan-600 mb-2"></i>
+                                <p class="font-semibold text-gray-700">Tarjeta</p>
+                                <p class="text-sm text-gray-500">Visa, Mastercard</p>
+                            </div>
+                        </label>
+                        
+                        <label class="payment-method cursor-pointer">
+                            <input type="radio" name="paymentMethod" value="paypal" class="sr-only">
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all hover:border-cyan-300">
+                                <i class="fab fa-paypal text-3xl text-blue-600 mb-2"></i>
+                                <p class="font-semibold text-gray-700">PayPal</p>
+                                <p class="text-sm text-gray-500">Pago seguro</p>
+                            </div>
+                        </label>
+                        
+                        <label class="payment-method cursor-pointer">
+                            <input type="radio" name="paymentMethod" value="transfer" class="sr-only">
+                            <div class="border-2 border-gray-200 rounded-xl p-4 text-center transition-all hover:border-cyan-300">
+                                <i class="fas fa-university text-3xl text-green-600 mb-2"></i>
+                                <p class="font-semibold text-gray-700">Transferencia</p>
+                                <p class="text-sm text-gray-500">Banco directo</p>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Formulario de tarjeta -->
+                    <div id="cardForm" class="hidden">
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="md:col-span-2">
+                                <label class="block text-cyan-700 font-semibold mb-2">Número de Tarjeta</label>
+                                <div id="card-number" class="input-ocean rounded-xl p-3"></div>
+                            </div>
+                            <div>
+                                <label class="block text-cyan-700 font-semibold mb-2">Fecha de Vencimiento</label>
+                                <div id="card-expiry" class="input-ocean rounded-xl p-3"></div>
+                            </div>
+                            <div>
+                                <label class="block text-cyan-700 font-semibold mb-2">CVC</label>
+                                <div id="card-cvc" class="input-ocean rounded-xl p-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Información de transferencia -->
+                    <div id="transferInfo" class="hidden bg-cyan-50 rounded-xl p-6 border border-cyan-200">
+                        <h4 class="font-bold text-cyan-800 mb-4">
+                            <i class="fas fa-info-circle mr-2"></i>Datos para Transferencia
+                        </h4>
+                        <div class="space-y-2 text-sm">
+                            <p><strong>Banco:</strong> BCP</p>
+                            <p><strong>Cuenta Corriente:</strong> 1234567890</p>
+                            <p><strong>CCI:</strong> 002-123-001234567890-12</p>
+                            <p><strong>Titular:</strong> AquaZen Technologies SAC</p>
+                        </div>
+                        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-yellow-800 text-sm">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                Envía tu comprobante de pago a: pagos@aquazen.com
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen del Pedido -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <h2 class="text-3xl font-bold text-cyan-800 mb-6">
+                        <i class="fas fa-clipboard-list mr-3"></i>Resumen del Pedido
+                    </h2>
+                    
+                    <div class="bg-white/50 rounded-xl p-6 space-y-4">
+                        <div id="orderSummary" class="hidden">
+                            <div class="flex justify-between items-center py-3 border-b border-cyan-100">
+                                <span class="text-gray-700">Plan seleccionado:</span>
+                                <span id="summaryPlan" class="font-semibold text-cyan-700"></span>
+                            </div>
+                            <div class="flex justify-between items-center py-3 border-b border-cyan-100">
+                                <span class="text-gray-700">Precio mensual:</span>
+                                <span id="summaryPrice" class="font-semibold text-cyan-700"></span>
+                            </div>
+                            <div class="flex justify-between items-center py-3 border-b border-cyan-100">
+                                <span class="text-gray-700">Hardware incluido:</span>
+                                <span class="text-green-600 font-semibold">GRATIS</span>
+                            </div>
+                            <div class="flex justify-between items-center py-3 border-b border-cyan-100">
+                                <span class="text-gray-700">Instalación:</span>
+                                <span class="text-green-600 font-semibold">GRATIS</span>
+                            </div>
+                            <div class="flex justify-between items-center py-3 text-lg font-bold">
+                                <span class="text-cyan-800">Total primer mes:</span>
+                                <span id="summaryTotal" class="text-cyan-600"></span>
+                            </div>
+                        </div>
+                        
+                        <div id="noSelection" class="text-center text-gray-500 py-8">
+                            <i class="fas fa-arrow-up text-4xl mb-4"></i>
+                            <p>Selecciona un plan para ver el resumen</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Términos y Envío -->
+                <div class="form-ocean rounded-3xl p-8 shadow-xl">
+                    <div class="mb-6">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="terms" required 
+                                   class="mt-1 w-5 h-5 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500">
+                            <span class="text-gray-700">
+                                Acepto los 
+                                <a href="#" class="text-cyan-600 hover:text-cyan-800 underline">términos y condiciones</a> 
+                                y la 
+                                <a href="#" class="text-cyan-600 hover:text-cyan-800 underline">política de privacidad</a> 
+                                de AquaZen
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div class="mb-8">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="newsletter" 
+                                   class="mt-1 w-5 h-5 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500">
+                            <span class="text-gray-700">
+                                Quiero recibir consejos y novedades sobre el cuidado de acuarios por email
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" 
+                            class="btn-ocean w-full py-4 px-8 rounded-full text-xl font-bold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                            id="submitBtn" disabled>
+                        <i class="fas fa-paper-plane mr-3"></i>
+                        <span id="submitText">Enviar Solicitud</span>
+                        <div class="hidden" id="submitLoader">
+                            <i class="fas fa-spinner fa-spin mr-3"></i>Procesando...
+                        </div>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-cyan-900 text-white py-16">
+        <div class="container mx-auto px-6">
+            <div class="text-center">
+                <div class="flex items-center justify-center space-x-3 mb-6">
+                    <svg class="w-10 h-10 text-cyan-400" fill="currentColor" viewBox="0 0 100 100">
+                        <rect x="10" y="20" width="80" height="45" rx="8" fill="rgba(255, 255, 255, 0.2)" stroke="white" stroke-width="2"/>
+                        <rect x="13" y="23" width="74" height="39" rx="6" fill="rgba(255, 255, 255, 0.1)"/>
+                        <ellipse cx="35" cy="40" rx="6" ry="4" fill="#fbbf24" opacity="0.9"/>
+                        <ellipse cx="65" cy="35" rx="4" ry="3" fill="#ef4444" opacity="0.9"/>
+                        <circle cx="25" cy="55" r="1.5" fill="white" opacity="0.8"/>
+                        <circle cx="75" cy="50" r="1" fill="white" opacity="0.6"/>
+                    </svg>
+                    <span class="text-2xl font-bold">AquaZen</span>
+                </div>
+                <p class="text-cyan-200 mb-6">El futuro del cuidado de acuarios está aquí</p>
+                <div class="flex justify-center space-x-6">
+                    <a href="mailto:info@aquazen.com" class="hover:text-cyan-400 transition">
+                        <i class="fas fa-envelope mr-2"></i>info@aquazen.com
+                    </a>
+                    <a href="tel:+51123456789" class="hover:text-cyan-400 transition">
+                        <i class="fas fa-phone mr-2"></i>(+51) 123-456-789
+                    </a>
+                </div>
+                <div class="mt-8 pt-8 border-t border-cyan-800 text-cyan-300 text-sm">
+                    <p>&copy; 2024 AquaZen IoT. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Configuración de Stripe
+        const stripe = Stripe('pk_test_TYooMQauvdEDq54NiTphI7jx'); // Reemplazar con tu clave pública
+        const elements = stripe.elements();
+
+        // Configuración de estilos para los elementos de Stripe
+        const cardStyle = {
+            base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                    color: '#aab7c4',
+                },
+            },
+            invalid: {
+                color: '#9e2146',
+            },
+        };
+
+        // Crear elementos de tarjeta
+        const cardNumber = elements.create('cardNumber', {style: cardStyle});
+        const cardExpiry = elements.create('cardExpiry', {style: cardStyle});
+        const cardCvc = elements.create('cardCvc', {style: cardStyle});
+
+        // Preseleccionar plan si viene en la URL
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const selectedPlan = urlParams.get('plan');
+            
+            if (selectedPlan) {
+                const planCard = document.querySelector(`[data-plan="${selectedPlan}"]`);
+                if (planCard) {
+                    planCard.click(); // Simular click para seleccionar el plan
+                }
+            }
+        });
+
+        // Selección de planes
+        document.querySelectorAll('.plan-card').forEach(card => {
+            card.addEventListener('click', function() {
+                // Remover selección anterior
+                document.querySelectorAll('.plan-card').forEach(c => {
+                    c.classList.remove('selected');
+                    c.querySelector('.plan-check').classList.add('hidden');
+                });
+                
+                // Seleccionar nuevo plan
+                this.classList.add('selected');
+                this.querySelector('.plan-check').classList.remove('hidden');
+                
+                // Actualizar campos hidden
+                const plan = this.dataset.plan;
+                const price = this.dataset.price;
+                document.getElementById('selectedPlan').value = plan;
+                document.getElementById('selectedPrice').value = price;
+                
+                // Actualizar resumen
+                updateOrderSummary(plan, price);
+                
+                // Habilitar botón si se cumplen condiciones
+                validateForm();
+            });
+        });
+
+        // Actualizar resumen del pedido
+        function updateOrderSummary(plan, price) {
+            const planNames = {
+                'monthly': 'Plan Mensual',
+                'biannual': 'Plan Semestral',
+                'annual': 'Plan Anual'
+            };
+            
+            document.getElementById('summaryPlan').textContent = planNames[plan];
+            document.getElementById('summaryPrice').textContent = `$${price}/mes`;
+            document.getElementById('summaryTotal').textContent = `$${price}`;
+            
+            document.getElementById('orderSummary').classList.remove('hidden');
+            document.getElementById('noSelection').classList.add('hidden');
+        }
+
+        // Métodos de pago
+        document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Ocultar todos los formularios
+                document.getElementById('cardForm').classList.add('hidden');
+                document.getElementById('transferInfo').classList.add('hidden');
+                
+                // Actualizar estilos
+                document.querySelectorAll('.payment-method div').forEach(div => {
+                    div.classList.remove('border-cyan-500', 'bg-cyan-50');
+                    div.classList.add('border-gray-200');
+                });
+                
+                // Mostrar formulario correspondiente
+                const selectedDiv = this.parentElement.querySelector('div');
+                selectedDiv.classList.remove('border-gray-200');
+                selectedDiv.classList.add('border-cyan-500', 'bg-cyan-50');
+                
+                if (this.value === 'card') {
+                    document.getElementById('cardForm').classList.remove('hidden');
+                    // Montar elementos de Stripe
+                    setTimeout(() => {
+                        cardNumber.mount('#card-number');
+                        cardExpiry.mount('#card-expiry');
+                        cardCvc.mount('#card-cvc');
+                    }, 100);
+                } else if (this.value === 'transfer') {
+                    document.getElementById('transferInfo').classList.remove('hidden');
+                }
+                
+                validateForm();
+            });
+        });
+
+        // Validación del formulario
+        function validateForm() {
+            const form = document.getElementById('subscriptionForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const requiredFields = form.querySelectorAll('[required]');
+            const planSelected = document.getElementById('selectedPlan').value;
+            const paymentSelected = document.querySelector('input[name="paymentMethod"]:checked');
+            
+            let isValid = true;
+            
+            // Verificar campos requeridos
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                }
+            });
+            
+            // Verificar plan seleccionado
+            if (!planSelected) {
+                isValid = false;
+            }
+            
+            // Verificar método de pago seleccionado
+            if (!paymentSelected) {
+                isValid = false;
+            }
+            
+            submitBtn.disabled = !isValid;
+        }
+
+        // Agregar listeners para validación en tiempo real
+        document.addEventListener('input', validateForm);
+        document.addEventListener('change', validateForm);
+
+        // Envío del formulario
+        document.getElementById('subscriptionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const submitLoader = document.getElementById('submitLoader');
+            
+            // Mostrar estado de carga
+            submitBtn.disabled = true;
+            submitText.classList.add('hidden');
+            submitLoader.classList.remove('hidden');
+            
+            try {
+                // Recopilar datos del formulario
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData);
+                
+                // Si es pago con tarjeta, procesar con Stripe
+                if (data.paymentMethod === 'card') {
+                    const {token, error} = await stripe.createToken(cardNumber);
+                    
+                    if (error) {
+                        throw new Error(error.message);
+                    }
+                    
+                    data.stripeToken = token.id;
+                }
+                
+                // Enviar datos al servidor
+                const response = await fetch('/api/subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al procesar la solicitud');
+                }
+                
+                const result = await response.json();
+                
+                // Mostrar mensaje de éxito
+                showSuccessMessage();
+                
+            } catch (error) {
+                // Mostrar error
+                alert('Error: ' + error.message);
+                
+                // Restaurar botón
+                submitBtn.disabled = false;
+                submitText.classList.remove('hidden');
+                submitLoader.classList.add('hidden');
+            }
+        });
+
+        // Función para mostrar mensaje de éxito
+        function showSuccessMessage() {
+            const form = document.getElementById('subscriptionForm');
+            form.innerHTML = `
+                <div class="form-ocean rounded-3xl p-12 shadow-xl text-center">
+                    <div class="mb-6">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-check text-3xl text-green-600"></i>
+                        </div>
+                        <h2 class="text-4xl font-bold text-cyan-800 mb-4">¡Solicitud Enviada!</h2>
+                        <p class="text-xl text-cyan-600 mb-6">
+                            Tu solicitud ha sido procesada exitosamente. Nos pondremos en contacto contigo dentro de las próximas 24 horas.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-cyan-50 rounded-xl p-6 mb-8">
+                        <h3 class="font-bold text-cyan-800 mb-4">¿Qué sigue ahora?</h3>
+                        <ul class="text-left space-y-3 text-cyan-700">
+                            <li class="flex items-center gap-3">
+                                <i class="fas fa-phone text-cyan-600"></i>
+                                Te llamaremos para confirmar los detalles
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="fas fa-calendar text-cyan-600"></i>
+                                Programaremos la visita de instalación
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="fas fa-tools text-cyan-600"></i>
+                                Instalaremos tu sistema AquaZen
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="fas fa-laptop text-cyan-600"></i>
+                                Te daremos acceso a tu dashboard personal
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <a href="/" class="btn-ocean inline-block px-8 py-3 rounded-full font-bold">
+                            <i class="fas fa-home mr-2"></i>Volver al Inicio
+                        </a>
+                        <br>
+                        <a href="/login" class="text-cyan-600 hover:text-cyan-800 underline">
+                            ¿Ya tienes cuenta? Inicia sesión aquí
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            // Scroll al inicio
+            window.scrollTo({top: 0, behavior: 'smooth'});
+            
+            // Reiniciar animaciones de peces
+            document.querySelectorAll('.fish-animation').forEach(fish => {
+                fish.style.animation = 'none';
+                fish.offsetHeight; // Trigger reflow
+                fish.style.animation = null;
+            });
+        }
+    </script>
+</body>
+</html>

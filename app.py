@@ -438,6 +438,100 @@ def index():
 def index_html():
     return redirect(url_for('index'))
 
+# Ruta para la página de suscripción
+@app.route('/subscription')
+def subscription():
+    selected_plan = request.args.get('plan', '')
+    return render_template('subscription.html', selected_plan=selected_plan)
+
+# API para procesar solicitudes de suscripción
+@app.route('/api/subscription', methods=['POST'])
+def api_subscription():
+    try:
+        data = request.get_json()
+        
+        # Extraer datos del formulario
+        full_name = data.get('fullName')
+        email = data.get('email')
+        phone = data.get('phone')
+        document_id = data.get('documentId')
+        address = data.get('address')
+        aquarium_type = data.get('aquariumType')
+        tank_size = data.get('tankSize')
+        comments = data.get('comments', '')
+        plan = data.get('plan')
+        price = data.get('price')
+        payment_method = data.get('paymentMethod')
+        stripe_token = data.get('stripeToken', '')
+        
+        # Validar datos requeridos
+        if not all([full_name, email, phone, document_id, address, aquarium_type, tank_size, plan, price, payment_method]):
+            return jsonify({"error": "Faltan campos requeridos"}), 400
+        
+        # Conectar a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({"error": "Error de conexión a la base de datos"}), 500
+        
+        try:
+            cursor = connection.cursor()
+            
+            # Crear tabla de solicitudes si no existe
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS solicitudes_suscripcion (
+                    id_solicitud INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre_completo VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) NOT NULL,
+                    telefono VARCHAR(20) NOT NULL,
+                    documento_id VARCHAR(50) NOT NULL,
+                    direccion TEXT NOT NULL,
+                    tipo_acuario VARCHAR(50) NOT NULL,
+                    tamaño_tanque VARCHAR(50) NOT NULL,
+                    comentarios TEXT,
+                    plan_seleccionado VARCHAR(20) NOT NULL,
+                    precio_mensual DECIMAL(10,2) NOT NULL,
+                    metodo_pago VARCHAR(20) NOT NULL,
+                    stripe_token VARCHAR(255),
+                    estado VARCHAR(20) DEFAULT 'pendiente',
+                    fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Insertar la solicitud
+            cursor.execute('''
+                INSERT INTO solicitudes_suscripcion 
+                (nombre_completo, email, telefono, documento_id, direccion, 
+                 tipo_acuario, tamaño_tanque, comentarios, plan_seleccionado, 
+                 precio_mensual, metodo_pago, stripe_token)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (full_name, email, phone, document_id, address, aquarium_type, 
+                  tank_size, comments, plan, float(price), payment_method, stripe_token))
+            
+            connection.commit()
+            solicitud_id = cursor.lastrowid
+            
+            # Aquí puedes agregar lógica adicional como:
+            # - Envío de emails de confirmación
+            # - Procesamiento de pagos con Stripe
+            # - Notificaciones al equipo de ventas
+            
+            return jsonify({
+                "success": True, 
+                "message": "Solicitud procesada exitosamente",
+                "solicitud_id": solicitud_id
+            }), 200
+            
+        except Exception as e:
+            print(f"Error al procesar solicitud: {e}")
+            return jsonify({"error": "Error al procesar la solicitud"}), 500
+        finally:
+            cursor.close()
+            connection.close()
+            
+    except Exception as e:
+        print(f"Error general en API subscription: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 # Ruta para iniciar sesión
 @app.route('/login', methods=['GET', 'POST'])
 def login():

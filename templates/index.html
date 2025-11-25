@@ -1,233 +1,547 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="AquaZen - Sistema inteligente de monitoreo para peceras con IoT">
-    <meta name="keywords" content="pecera, IoT, monitoreo, acuicultura, sensores">
-    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
-    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <title>AquaZen - Pecera Inteligente</title>
-    <link rel="preload" href="https://cdn.tailwindcss.com" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://cdn.tailwindcss.com"></noscript>
+    <title>AquaZen - El Futuro de tu Acuario</title>
+    <meta name="description" content="Sistema inteligente de monitoreo IoT para peceras y acuarios plantados.">
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"></noscript>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                    },
+                    colors: {
+                        cyan: {
+                            50: '#ecfeff',
+                            100: '#cffafe',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            800: '#155e75',
+                            900: '#164e63',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'swim': 'swim 15s linear infinite',
+                        'swim-reverse': 'swimReverse 12s linear infinite',
+                        'rise': 'rise 4s infinite ease-in',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        swim: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(400px)' },
+                        },
+                        swimReverse: {
+                            '0%': { transform: 'translateX(400px) scaleX(-1)' },
+                            '100%': { transform: 'translateX(-100%) scaleX(-1)' },
+                        },
+                        rise: {
+                            '0%': { bottom: '-10px', transform: 'translateX(0)', opacity: '0' },
+                            '50%': { opacity: '1' },
+                            '100%': { bottom: '100%', transform: 'translateX(-20px)', opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
-        .bg-pattern {
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.1) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(255,255,255,0.1) 2px, transparent 2px);
-            background-size: 20px 20px;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
-        .parallax-bg {
-            background-attachment: fixed;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-size: cover;
-        }
-        .tech-hover {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .tech-hover:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-        .animate-text {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(10px); }
-            100% { opacity: 1; transform: translateY(0); }
+        .blob {
+            position: absolute;
+            filter: blur(40px);
+            z-index: -1;
+            opacity: 0.4;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-    <!-- Navegación -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center">
-                <svg class="w-10 h-10 text-cyan-600 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-                <span class="text-2xl font-bold text-cyan-800">AquaZen</span>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="/dashboard" class="text-cyan-600 hover:text-cyan-800 font-medium transition duration-200">
-                    Dashboard
+<body class="bg-cyan-50 text-gray-800 antialiased overflow-x-hidden">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="flex items-center gap-2 group">
+                <div class="bg-cyan-600 text-white p-2 rounded-lg group-hover:bg-cyan-500 transition-colors">
+                    <i class="fas fa-water text-xl"></i>
+                </div>
+                <span class="text-2xl font-bold text-cyan-900 tracking-tight">AquaZen<span class="text-cyan-500">.IoT</span></span>
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#features" class="text-gray-600 hover:text-cyan-600 font-medium transition">Características</a>
+                <a href="#app" class="text-gray-600 hover:text-cyan-600 font-medium transition">Próximamente</a>
+                <a href="#pricing" class="text-gray-600 hover:text-cyan-600 font-medium transition">Planes</a>
+                <a href="/login" class="text-cyan-700 font-semibold hover:text-cyan-500 transition">Ingresar</a>
                 </a>
-                <a href="/login" class="bg-cyan-600 text-white px-6 py-2 rounded-full hover:bg-cyan-700 transition duration-200">
-                    Iniciar Sesión
-                </a>
             </div>
+
+            <!-- Mobile Menu Button -->
+            <button class="md:hidden text-gray-600 focus:outline-none">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
         </div>
     </nav>
 
-<!-- Hero Section -->
-<header class="relative min-h-screen flex items-center bg-gradient-to-br from-cyan-900 via-blue-800 to-teal-700 text-white animate-text">
-    <!-- Patrón de burbujas de fondo -->
-    <div class="absolute inset-0">
-        <div class="absolute top-20 left-10 w-4 h-4 bg-cyan-300 rounded-full opacity-30 animate-pulse"></div>
-        <div class="absolute top-40 right-20 w-6 h-6 bg-blue-300 rounded-full opacity-40 animate-pulse" style="animation-delay: 0.2s"></div>
-        <div class="absolute bottom-40 left-1/4 w-3 h-3 bg-teal-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.4s"></div>
-        <div class="absolute bottom-60 right-1/3 w-5 h-5 bg-cyan-200 rounded-full opacity-30 animate-pulse" style="animation-delay: 0.6s"></div>
-    </div>
-    
-    <div class="container mx-auto px-4 relative z-10 flex items-center justify-between">
-        <!-- Texto de la sección -->
-        <div class="max-w-3xl">
-            <h1 class="text-6xl font-bold mb-6 leading-tight">
-                Revolución Tecnológica en Acuicultura Inteligente
-            </h1>
-            <p class="text-2xl mb-10 text-cyan-100">
-                Monitorea y optimiza tus peceras con tecnología IoT de última generación para un ecosistema acuático perfecto.
-            </p>
-            <div class="flex space-x-4">
-                <a href="/dashboard" class="bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full font-semibold text-lg transition duration-200 shadow-lg">
-                    <i class="fas fa-tachometer-alt mr-2"></i>
-                    Ver Dashboard
-                </a>
-                <a href="/login" class="bg-transparent border-2 border-cyan-300 text-cyan-300 hover:bg-cyan-300 hover:text-cyan-900 px-8 py-4 rounded-full font-semibold text-lg transition duration-200">
-                    Comenzar
-                </a>
+    <!-- Hero Section -->
+    <header class="relative pt-15 pb-20 lg:pt-32 lg:pb-32 overflow-hidden">
+        <!-- Background Decor -->
+        <div class="blob bg-purple-300 w-96 h-96 rounded-full top-0 left-0 -translate-x-1/2 -translate-y-1/2"></div>
+        <div class="blob bg-cyan-300 w-96 h-96 rounded-full bottom-0 right-0 translate-x-1/3 translate-y-1/3"></div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="flex flex-col lg:flex-row items-center gap-12">
+                
+                <!-- Text Content -->
+                <div class="lg:w-1/2 text-center lg:text-left">
+                    <div class="inline-block px-4 py-1.5 mb-6 bg-cyan-100 text-cyan-700 rounded-full text-sm font-semibold tracking-wide uppercase shadow-sm">
+                        <i class="fas fa-bolt mr-2 text-yellow-500"></i> Tecnología IoT v2.0
+                    </div>
+                    <h1 class="text-5xl lg:text-6xl font-bold leading-tight text-gray-900 mb-6">
+                        Tu acuario,<br> 
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">siempre perfecto.</span>
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                        Control total desde nuestra plataforma Web. Monitoreo en tiempo real, alimentación automática y alertas inteligentes para tus peces.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                        <a href="/subscription" class="bg-cyan-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl shadow-cyan-600/20 hover:bg-cyan-500 transition-all hover:scale-105">
+                            Solicitar Servicio
+                        </a>
+                        <a href="#video" class="flex items-center justify-center gap-3 px-8 py-4 rounded-full font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-all">
+                            <i class="fas fa-play-circle text-cyan-500 text-2xl"></i> Cómo funciona
+                        </a>
+                    </div>
+                    
+                    <!-- Stats -->
+                    <div class="mt-12 flex items-center justify-center lg:justify-start gap-8 text-gray-500 text-sm font-medium">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-green-500"></i> +1000 Usuarios Activos
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-shield-alt text-blue-500"></i> Garantía de Servicio
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animated SVG Graphic -->
+                <div class="lg:w-1/2 relative animate-float">
+                    <div class="relative bg-gradient-to-b from-blue-400/20 to-cyan-300/20 rounded-[3rem] p-4 backdrop-blur-sm border border-white/50 shadow-2xl">
+                        <svg class="w-full h-auto" viewBox="0 0 500 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Tank Glass -->
+                            <rect x="50" y="50" width="400" height="300" rx="20" fill="url(#water-gradient)" stroke="#ffffff" stroke-width="4" stroke-opacity="0.5"/>
+                            
+                            <!-- Sand -->
+                            <path d="M52 300 C 150 290, 350 310, 448 300 V 330 A 20 20 0 0 1 428 350 H 72 A 20 20 0 0 1 52 330 Z" fill="#e2cba9"/>
+                            
+                            <!-- Plants -->
+                            <g class="animate-[pulse_4s_ease-in-out_infinite]">
+                                <path d="M100 300 Q 90 200 110 150" stroke="#22c55e" stroke-width="8" stroke-linecap="round"/>
+                                <path d="M110 310 Q 130 220 100 180" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+                                <path d="M380 300 Q 390 200 360 160" stroke="#22c55e" stroke-width="8" stroke-linecap="round"/>
+                            </g>
+
+                            <!-- Fish 1 (Animated) -->
+                            <g class="animate-swim" style="transform-origin: center;">
+                                <path d="M140 200 Q 155 190 170 200 Q 155 210 140 200 M 170 200 L 180 195 L 180 205 Z" fill="#fb923c"/>
+                            </g>
+                            
+                            <!-- Fish 2 (Animated Reverse) -->
+                            <g class="animate-swim-reverse" style="animation-delay: 2s;">
+                                <path d="M300 250 Q 315 240 330 250 Q 315 260 300 250 M 330 250 L 340 245 L 340 255 Z" fill="#f472b6"/>
+                            </g>
+
+                            <!-- Bubbles -->
+                            <circle cx="120" cy="300" r="4" fill="white" opacity="0.6" class="animate-rise"/>
+                            <circle cx="140" cy="300" r="3" fill="white" opacity="0.4" class="animate-rise" style="animation-delay: 1s"/>
+                            <circle cx="380" cy="300" r="5" fill="white" opacity="0.5" class="animate-rise" style="animation-delay: 2s"/>
+
+                            <!-- Definitions -->
+                            <defs>
+                                <linearGradient id="water-gradient" x1="250" y1="50" x2="250" y2="350" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#22d3ee" stop-opacity="0.2"/>
+                                    <stop offset="1" stop-color="#0e7490" stop-opacity="0.4"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        
+                        <!-- Floating IoT Cards -->
+                        <div class="absolute -right-6 top-20 bg-white p-3 rounded-xl shadow-lg animate-float" style="animation-delay: 1s;">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-red-100 p-2 rounded-full text-red-500"><i class="fas fa-temperature-high"></i></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Temperatura</p>
+                                    <p class="font-bold text-gray-800">24.5°C</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="absolute -left-6 bottom-20 bg-white p-3 rounded-xl shadow-lg animate-float" style="animation-delay: 2s;">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-blue-100 p-2 rounded-full text-blue-500"><i class="fas fa-tint"></i></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">pH Nivel</p>
+                                    <p class="font-bold text-gray-800">7.2</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+    </header>
 
-        <!-- SVG de pecera -->
-        <div class="w-full md:w-1/2 flex justify-center relative">
-            <svg class="w-96 h-96 text-cyan-300" fill="currentColor" viewBox="0 0 400 300">
-                <!-- Pecera -->
-                <rect x="50" y="80" width="300" height="180" rx="20" ry="20" fill="rgba(6, 182, 212, 0.2)" stroke="currentColor" stroke-width="3"/>
-                <!-- Agua -->
-                <rect x="55" y="85" width="290" height="170" rx="17" ry="17" fill="rgba(6, 182, 212, 0.4)"/>
-                <!-- Peces -->
-                <ellipse cx="120" cy="150" rx="15" ry="8" fill="#f59e0b" opacity="0.8"/>
-                <ellipse cx="280" cy="120" rx="12" ry="6" fill="#ef4444" opacity="0.8"/>
-                <ellipse cx="200" cy="200" rx="18" ry="10" fill="#10b981" opacity="0.8"/>
-                <!-- Burbujas -->
-                <circle cx="100" cy="220" r="3" fill="white" opacity="0.6"/>
-                <circle cx="320" cy="200" r="2" fill="white" opacity="0.5"/>
-                <circle cx="250" cy="240" r="4" fill="white" opacity="0.7"/>
-                <!-- Plantas acuáticas -->
-                <path d="M80 250 Q85 230 90 250 Q95 230 100 250" stroke="#10b981" stroke-width="2" fill="none"/>
-                <path d="M300 240 Q305 220 310 240 Q315 220 320 240" stroke="#10b981" stroke-width="2" fill="none"/>
-            </svg>
-        </div>
-    </div>
-</header>
+    <!-- Features Section -->
+    <section id="features" class="py-24 bg-white relative">
+        <div class="container mx-auto px-6">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <span class="text-cyan-600 font-semibold tracking-wide uppercase">Características Web</span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-2 text-gray-900">Plataforma Web Completa y Responsiva</h2>
+                <p class="text-gray-500 mt-4">Accede desde tu computadora, tablet o navegador móvil con total comodidad.</p>
+            </div>
 
-    <!-- Tecnología de Punta -->
-    <section class="py-24 bg-white">
-        <div class="container mx-auto px-4">
-            <h2 class="text-4xl font-bold text-center mb-16 text-cyan-900">
-                Tecnología IoT para Acuicultura Inteligente
-            </h2>
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-cyan-50 p-8 rounded-2xl tech-hover shadow-lg">
-                    <div class="flex justify-center mb-6">
-                        <svg class="w-32 h-32 text-cyan-600" fill="currentColor" viewBox="0 0 200 200">
-                            <circle cx="100" cy="100" r="80" fill="rgba(6, 182, 212, 0.2)" stroke="currentColor" stroke-width="4"/>
-                            <circle cx="100" cy="100" r="60" fill="rgba(6, 182, 212, 0.1)"/>
-                            <circle cx="85" cy="85" r="8" fill="#f59e0b"/>
-                            <circle cx="115" cy="75" r="6" fill="#ef4444"/>
-                            <circle cx="105" cy="120" r="10" fill="#10b981"/>
-                            <circle cx="70" cy="130" r="2" fill="white" opacity="0.8"/>
-                            <circle cx="140" cy="140" r="3" fill="white" opacity="0.6"/>
-                        </svg>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Card 1 -->
+                <div class="bg-gray-50 p-8 rounded-3xl hover:bg-cyan-50 transition-colors duration-300 group cursor-pointer border border-gray-100 hover:border-cyan-200">
+                    <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-thermometer-half"></i>
                     </div>
-                    <h3 class="text-2xl font-semibold mb-4 text-cyan-800">
-                        Monitoreo de Peceras
-                    </h3>
-                    <p class="text-gray-700">
-                        Sensores avanzados que monitorean calidad del agua, nivel y humedad en tiempo real para mantener un ecosistema perfecto.
-                    </p>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">Control Térmico</h3>
+                    <p class="text-gray-600">Monitoreo 24/7 de la temperatura. Recibe alertas si el calentador falla.</p>
                 </div>
-                <div class="bg-green-50 p-8 rounded-2xl tech-hover shadow-lg">
-                    <img src="/static/assets/img/img3.jpeg" alt="Sensores IoT" class="w-full h-64 object-cover rounded-xl mb-6">
-                    <h3 class="text-2xl font-semibold mb-4 text-green-800">
-                        Sensores IoT Avanzados
-                    </h3>
-                    <p class="text-gray-700">
-                        Red de sensores que monitorean cada aspecto de tus cultivos en tiempo real.
-                    </p>
+
+                <!-- Card 2 -->
+                <div class="bg-gray-50 p-8 rounded-3xl hover:bg-cyan-50 transition-colors duration-300 group cursor-pointer border border-gray-100 hover:border-cyan-200">
+                    <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">Calidad del Agua</h3>
+                    <p class="text-gray-600">Sensores de pH y turbidez para asegurar que el agua esté cristalina.</p>
                 </div>
-                <div class="bg-teal-50 p-8 rounded-2xl tech-hover shadow-lg">
-                    <img src="/static/assets/img/img3.jpeg" alt="Análisis de Datos" class="w-full h-64 object-cover rounded-xl mb-6">
-                    <h3 class="text-2xl font-semibold mb-4 text-teal-800">
-                        Análisis Predictivo
-                    </h3>
-                    <p class="text-gray-700">
-                        Inteligencia artificial que predice y optimiza las condiciones de tu pecera automáticamente.
-                    </p>
+
+                <!-- Card 3 -->
+                <div class="bg-gray-50 p-8 rounded-3xl hover:bg-cyan-50 transition-colors duration-300 group cursor-pointer border border-gray-100 hover:border-cyan-200">
+                    <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">Alimentación Auto</h3>
+                    <p class="text-gray-600">Programa horarios de comida o alimenta manualmente desde el dashboard.</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-gray-50 p-8 rounded-3xl hover:bg-cyan-50 transition-colors duration-300 group cursor-pointer border border-gray-100 hover:border-cyan-200">
+                    <div class="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">Streaming en Vivo</h3>
+                    <p class="text-gray-600">Observa a tus peces desde cualquier parte del mundo con la cámara HD.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Beneficios -->
-    <section class="py-24 bg-blue-100">
-        <div class="container mx-auto px-4">
-            <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
-                Beneficios Revolucionarios
-            </h2>
-            <div class="grid md:grid-cols-2 gap-12">
-                <div>
-                    <img src="/static/assets/img/img4.jpeg" alt="Beneficios Agricultura" class="w-full rounded-2xl shadow-xl mb-8">
-                </div>
-                <div>
-                    <ul class="space-y-6">
-                        <li class="flex items-start">
-                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
-                            <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Control de Calidad</h3>
-                                <p class="text-gray-700">Mantiene automáticamente los parámetros óptimos del agua para tus peces.</p>
-                            </div>
+    <!-- App Showcase Section -->
+    <section id="app" class="py-24 bg-cyan-900 text-white overflow-hidden relative">
+        <!-- Background Patterns -->
+        <div class="absolute top-0 right-0 w-full h-full opacity-10" style="background-image: radial-gradient(#22d3ee 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="flex flex-col md:flex-row items-center gap-16">
+                
+                <div class="md:w-1/2">
+                    <span class="bg-cyan-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">En Desarrollo</span>
+                    <h2 class="text-4xl md:text-5xl font-bold mb-6">Próximamente en tu bolsillo</h2>
+                    <p class="text-cyan-100 text-lg mb-8 leading-relaxed">
+                        Estamos trabajando arduamente en nuestra App nativa para iOS y Android. Mientras tanto, nuestra plataforma Web está optimizada para funcionar perfectamente en el navegador de tu móvil.
+                    </p>
+                    
+                    <ul class="space-y-4 mb-8 opacity-75">
+                        <li class="flex items-center gap-4">
+                            <i class="fas fa-check text-cyan-400"></i> <span>Diseño Web Responsivo Disponible Hoy</span>
                         </li>
-                        <li class="flex items-start">
-                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
-                            <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Salud de los Peces</h3>
-                                <p class="text-gray-700">Monitoreo continuo que previene enfermedades y mantiene un ambiente saludable.</p>
-                            </div>
+                        <li class="flex items-center gap-4">
+                            <i class="fas fa-hourglass-half text-cyan-400"></i> <span>Notificaciones Push (Pronto)</span>
                         </li>
-                        <li class="flex items-start">
-                            <i class="fas fa-check-circle text-green-500 text-2xl mr-4 mt-1"></i>
-                            <div>
-                                <h3 class="text-2xl font-semibold mb-2 text-blue-800">Automatización</h3>
-                                <p class="text-gray-700">Sistema completamente automatizado que cuida tu pecera las 24 horas del día.</p>
-                            </div>
+                        <li class="flex items-center gap-4">
+                            <i class="fas fa-hourglass-half text-cyan-400"></i> <span>Widgets de Pantalla de Inicio (Pronto)</span>
                         </li>
                     </ul>
+
+                    <div class="flex items-center gap-4">
+                        <button class="bg-white/10 text-white border border-white/20 px-6 py-3 rounded-full font-bold cursor-not-allowed opacity-70">
+                            <i class="fab fa-apple mr-2"></i> App Store
+                        </button>
+                        <button class="bg-white/10 text-white border border-white/20 px-6 py-3 rounded-full font-bold cursor-not-allowed opacity-70">
+                            <i class="fab fa-google-play mr-2"></i> Play Store
+                        </button>
+                    </div>
+                </div>
+
+                <div class="md:w-1/2 flex justify-center relative">
+                    <!-- Phone Mockup -->
+                    <div class="relative bg-gray-900 border-8 border-gray-800 rounded-[3rem] shadow-2xl w-72 h-[550px] overflow-hidden">
+                        <!-- Screen Content -->
+                        <div class="bg-gray-50 h-full w-full overflow-hidden">
+                            <!-- App Header -->
+                            <div class="bg-cyan-600 p-6 pt-10 text-white rounded-b-3xl mb-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <i class="fas fa-bars"></i>
+                                    <span class="font-bold">Mi Pecera</span>
+                                    <i class="fas fa-bell"></i>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-sm opacity-80">Temperatura Actual</p>
+                                    <h3 class="text-4xl font-bold">24°C</h3>
+                                    <span class="bg-white/20 px-3 py-1 rounded-full text-xs mt-2 inline-block">Estable</span>
+                                </div>
+                            </div>
+                            <!-- App Body -->
+                            <div class="px-4 space-y-3">
+                                <div class="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-blue-100 p-2 rounded-lg text-blue-500"><i class="fas fa-tint"></i></div>
+                                        <div>
+                                            <p class="font-bold text-sm text-gray-800">pH Nivel</p>
+                                            <p class="text-xs text-gray-500">Última lectura: 10m</p>
+                                        </div>
+                                    </div>
+                                    <span class="font-bold text-blue-600">7.0</span>
+                                </div>
+                                <div class="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-green-100 p-2 rounded-lg text-green-500"><i class="fas fa-cookie-bite"></i></div>
+                                        <div>
+                                            <p class="font-bold text-sm text-gray-800">Alimentador</p>
+                                            <p class="text-xs text-gray-500">Próxima: 18:00</p>
+                                        </div>
+                                    </div>
+                                    <div class="w-8 h-4 bg-green-500 rounded-full relative"><div class="absolute right-1 top-1 w-2 h-2 bg-white rounded-full"></div></div>
+                                </div>
+                                <!-- Chart Fake -->
+                                <div class="bg-white p-4 rounded-xl shadow-sm mt-4">
+                                    <p class="font-bold text-sm text-gray-800 mb-2">Historial Semanal</p>
+                                    <div class="flex items-end gap-2 h-20">
+                                        <div class="w-full bg-cyan-100 h-[60%] rounded-t"></div>
+                                        <div class="w-full bg-cyan-200 h-[80%] rounded-t"></div>
+                                        <div class="w-full bg-cyan-500 h-[50%] rounded-t"></div>
+                                        <div class="w-full bg-cyan-300 h-[70%] rounded-t"></div>
+                                        <div class="w-full bg-cyan-400 h-[90%] rounded-t"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Decorative Elements behind phone -->
+                    <div class="absolute -z-10 bg-cyan-500 blur-[100px] w-full h-full opacity-30"></div>
                 </div>
             </div>
         </div>
     </section>
 
-   <!-- Galería Tecnológica -->
-<section class="py-24 bg-white">
-    <div class="container mx-auto px-4">
-        <h2 class="text-4xl font-bold text-center mb-16 text-blue-900">
-            Sistema AquaZen en Funcionamiento
-        </h2>
-        <div class="grid md:grid-cols-4 gap-6">
-            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Sistema de Monitoreo" class="w-full h-64 object-cover rounded-xl">
-            <img src="{{ url_for('static', filename='assets/img/img1.jpeg') }}" alt="Sensores IoT" class="w-full h-64 object-cover rounded-xl">
-
-            <img src="{{ url_for('static', filename='assets/img/img2.jpeg') }}" alt="Panel de Control" class="w-full h-64 object-cover rounded-xl">
-            <img src="{{ url_for('static', filename='assets/img/img3.jpeg') }}" alt="Dashboard Analytics" class="w-full h-64 object-cover rounded-xl">
+    <!-- Gallery / Real Images Section -->
+    <section class="py-24 bg-white">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-12 text-gray-900">Nuestra Tecnología en Acción</h2>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Image 1 -->
+                <div class="relative group overflow-hidden rounded-2xl shadow-lg h-72">
+                    <img src="https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?q=80&w=800&auto=format&fit=crop" alt="Pecera Plantada" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                        <div>
+                            <h4 class="text-white font-bold text-lg">Acuarios Plantados</h4>
+                            <p class="text-gray-200 text-sm">Control de CO2 y Luz</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Image 2 -->
+                <div class="relative group overflow-hidden rounded-2xl shadow-lg h-72">
+                    <img src="https://images.unsplash.com/photo-1535591273668-578e31182c4f?q=80&w=800&auto=format&fit=crop" alt="Peces Tropicales" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                        <div>
+                            <h4 class="text-white font-bold text-lg">Salud de los Peces</h4>
+                            <p class="text-gray-200 text-sm">Monitoreo constante</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Image 3 (Tech) -->
+                <div class="relative group overflow-hidden rounded-2xl shadow-lg h-72 md:col-span-2 lg:col-span-1">
+                    <img src="https://images.unsplash.com/photo-1558002038-1091a166111c?q=80&w=800&auto=format&fit=crop" alt="Hardware IoT" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                        <div>
+                            <h4 class="text-white font-bold text-lg">Hardware Robusto</h4>
+                            <p class="text-gray-200 text-sm">ESP32 y Sensores de Precisión</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-24 bg-gray-50">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-4 text-gray-900">Suscripciones Todo Incluido</h2>
+            <p class="text-center text-gray-500 mb-16 max-w-2xl mx-auto">
+                Elige tu ciclo de facturación. Todos los planes incluyen acceso completo a hardware, sensores, cámara en vivo e historial ilimitado.
+            </p>
+            
+            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Plan Mensual -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-shadow flex flex-col">
+                    <h3 class="text-xl font-bold text-gray-500 mb-2">Mensual</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-2">$14.99<span class="text-lg font-normal text-gray-500">/mes</span></div>
+                    <p class="text-sm text-gray-400 mb-6">Facturación mes a mes</p>
+                    
+                    <ul class="space-y-4 mb-8 text-gray-600 flex-grow">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Acceso Total Web</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Monitoreo 24/7</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Alertas Email</li>
+                    </ul>
+                    <a href="/subscription?plan=monthly" class="block w-full py-3 px-6 text-center border-2 border-cyan-600 text-cyan-600 font-bold rounded-full hover:bg-cyan-50 transition">Seleccionar</a>
+                </div>
+
+                <!-- Plan Anual (Best Value) -->
+                <div class="bg-white p-8 rounded-3xl shadow-xl border-2 border-cyan-500 relative transform md:-translate-y-4 flex flex-col order-first md:order-none">
+                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">Mejor Oferta</div>
+                    <h3 class="text-xl font-bold text-cyan-600 mb-2">Anual</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-2">$9.99<span class="text-lg font-normal text-gray-500">/mes</span></div>
+                    <p class="text-sm text-green-600 font-semibold mb-6">Ahorras un 33% ($119.88/año)</p>
+                    
+                    <ul class="space-y-4 mb-8 text-gray-600 flex-grow">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> <strong>Todo lo del plan mensual</strong></li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Soporte Prioritario</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Historial de Datos Infinito</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Descuentos en Hardware</li>
+                    </ul>
+                    <a href="/subscription?plan=annual" class="block w-full py-3 px-6 text-center bg-cyan-600 text-white font-bold rounded-full hover:bg-cyan-700 transition shadow-lg shadow-cyan-500/30">Seleccionar Anual</a>
+                </div>
+
+                <!-- Plan Semestral -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-shadow flex flex-col">
+                    <h3 class="text-xl font-bold text-gray-500 mb-2">Semestral</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-2">$12.99<span class="text-lg font-normal text-gray-500">/mes</span></div>
+                    <p class="text-sm text-cyan-600 font-semibold mb-6">Ahorras un 15% ($77.94/6 meses)</p>
+                    
+                    <ul class="space-y-4 mb-8 text-gray-600 flex-grow">
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Acceso Total Web</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Monitoreo 24/7</li>
+                        <li class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Alertas Email</li>
+                    </ul>
+                    <a href="/subscription?plan=biannual" class="block w-full py-3 px-6 text-center border-2 border-cyan-600 text-cyan-600 font-bold rounded-full hover:bg-cyan-50 transition">Seleccionar</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="py-24 bg-white border-t border-gray-100">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-12 text-gray-900">Lo que dicen nuestros usuarios</h2>
+            <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div class="bg-gray-50 p-6 rounded-2xl text-left">
+                    <div class="flex text-yellow-400 mb-4">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                    </div>
+                    <p class="text-gray-600 italic mb-4">"Salvó mi acuario plantado cuando el calentador se rompió mientras estaba de viaje. La alerta llegó a tiempo."</p>
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full overflow-hidden">
+                            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900">Carlos R.</p>
+                            <p class="text-xs text-gray-500">Plan Anual</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-6 rounded-2xl text-left">
+                    <div class="flex text-yellow-400 mb-4">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
+                    </div>
+                    <p class="text-gray-600 italic mb-4">"La integración de la cámara es genial. Puedo ver a mis discos comer desde la oficina."</p>
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full overflow-hidden">
+                            <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="User" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900">Ana M.</p>
+                            <p class="text-xs text-gray-500">Plan Semestral</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
-    <footer class="bg-blue-900 text-white py-12">
-        <div class="container mx-auto px-4 text-center">
-            <p>&copy; 2024 AquaZen - Sistema Inteligente de Peceras. Todos los derechos reservados.</p>
+    <footer class="bg-gray-900 text-gray-300 py-16">
+        <div class="container mx-auto px-6">
+            <div class="grid md:grid-cols-4 gap-12 mb-12">
+                <div class="col-span-1 md:col-span-1">
+                    <span class="text-2xl font-bold text-white tracking-tight mb-4 block">AquaZen<span class="text-cyan-500">.IoT</span></span>
+                    <p class="text-sm opacity-60 leading-relaxed">
+                        Transformando la acuicultura con tecnología inteligente y accesible para todos.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Producto</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-cyan-400 transition">Características</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Hardware</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Precios</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Compañía</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-cyan-400 transition">Sobre Nosotros</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Blog</a></li>
+                        <li><a href="#" class="hover:text-cyan-400 transition">Contacto</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Suscríbete</h4>
+                    <p class="text-xs mb-4 opacity-60">Recibe consejos para el cuidado de tu acuario.</p>
+                    <div class="flex">
+                        <input type="email" placeholder="Email" class="bg-gray-800 text-white px-4 py-2 rounded-l-lg focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full text-sm">
+                        <button class="bg-cyan-600 px-4 py-2 rounded-r-lg hover:bg-cyan-500 transition"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-sm opacity-50">
+                <p>&copy; 2024 AquaZen IoT. Todos los derechos reservados.</p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="#" class="hover:text-white"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="hover:text-white"><i class="fab fa-facebook"></i></a>
+                    <a href="#" class="hover:text-white"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
         </div>
     </footer>
+
 </body>
 </html>

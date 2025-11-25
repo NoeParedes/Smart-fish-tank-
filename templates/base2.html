@@ -1,152 +1,261 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
     <head>
         <meta charset="utf-8" />
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <meta name="description" content="" />
-        <meta name="author" content="" />
+        <meta name="description" content="Sistema de Monitoreo AquaZen" />
+        <meta name="author" content="AquaZen Team" />
         <title>{% block title %}Pecera IoT{% endblock %}</title>
+        
+        <!-- Google Fonts: Poppins para un look moderno -->
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        
         <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
-    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
-    <link href="{{ url_for('static', filename='css/aquazen-theme.css') }}" rel="stylesheet" />
-    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+        <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+        <link href="{{ url_for('static', filename='css/aquazen-theme.css') }}" rel="stylesheet" />
+        <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+
+        <style>
+            /* --- ESTILOS PERSONALIZADOS AQUAZEN --- */
+            body {
+                font-family: 'Poppins', sans-serif;
+                background-color: #f0fdfa; /* Fondo muy suave cian */
+            }
+
+            /* Navbar Superior */
+            .sb-topnav {
+                background: linear-gradient(135deg, #0e7490 0%, #0891b2 50%, #06b6d4 100%);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            
+            .navbar-brand {
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+
+            /* Sidebar Lateral */
+            .sb-sidenav {
+                background: linear-gradient(180deg, #155e75 0%, #115e59 100%) !important;
+                box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+            }
+
+            .sb-sidenav-menu-heading {
+                color: #67e8f9 !important; /* Cyan brillante */
+                text-transform: uppercase;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 1.5px;
+                margin-top: 15px;
+            }
+
+            /* Enlaces del menú */
+            .sb-sidenav .nav-link {
+                color: rgba(255,255,255,0.85) !important;
+                margin: 4px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+                font-weight: 400;
+                font-size: 0.95rem;
+            }
+
+            .sb-sidenav .nav-link:hover {
+                color: #ffffff !important;
+                background: rgba(255, 255, 255, 0.15);
+                transform: translateX(5px); /* Efecto de deslizamiento sutil */
+            }
+
+            .sb-sidenav .nav-link .sb-nav-link-icon {
+                color: rgba(255,255,255,0.6);
+                transition: color 0.3s ease;
+            }
+
+            .sb-sidenav .nav-link:hover .sb-nav-link-icon {
+                color: #ffffff;
+            }
+
+            /* Submenús */
+            .sb-sidenav-menu-nested {
+                background: rgba(0, 0, 0, 0.15);
+                margin: 0 12px !important;
+                border-radius: 8px;
+                padding: 10px 0;
+            }
+
+            /* Colores específicos para iconos de sensores al hacer hover */
+            .nav-link.sensor-temp:hover .sb-nav-link-icon { color: #fcd34d !important; } /* Amarillo */
+            .nav-link.sensor-hum:hover .sb-nav-link-icon { color: #60a5fa !important; } /* Azul */
+            .nav-link.sensor-level:hover .sb-nav-link-icon { color: #4ade80 !important; } /* Verde */
+            .nav-link.sensor-qual:hover .sb-nav-link-icon { color: #f472b6 !important; } /* Rosa */
+
+            /* Footer */
+            footer {
+                background: white !important;
+                border-top: 1px solid #e2e8f0;
+            }
+            
+            /* Input de búsqueda */
+            .form-control-search {
+                background: rgba(255,255,255,0.15);
+                border: 1px solid rgba(255,255,255,0.2);
+                color: white;
+            }
+            .form-control-search::placeholder { color: rgba(255,255,255,0.6); }
+            .form-control-search:focus {
+                background: rgba(255,255,255,0.25);
+                color: white;
+                box-shadow: none;
+                border-color: rgba(255,255,255,0.5);
+            }
+            .btn-search {
+                background: rgba(255,255,255,0.9);
+                color: #0e7490;
+                border: none;
+            }
+            .btn-search:hover { background: #ffffff; }
+        </style>
     </head>
     <body class="sb-nav-fixed">
-        <nav class="sb-topnav navbar navbar-expand text-white" style="background: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #0e7490 100%);">
+        <nav class="sb-topnav navbar navbar-expand navbar-dark">
             <!-- Navbar Brand-->
             <a class="navbar-brand ps-3 d-flex align-items-center" href="{{ url_for('dashboard') }}">
-                <svg class="w-8 h-8 me-2" fill="currentColor" viewBox="0 0 24 24" width="32" height="32">
+                <svg class="me-2" fill="currentColor" viewBox="0 0 24 24" width="28" height="28">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                 </svg>
-                <span class="fw-bold">AquaZen</span>
+                <span>AquaZen</span>
             </a>
             <!-- Sidebar Toggle-->
-            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
+            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0 text-white" id="sidebarToggle" href="#!"><i class="fas fa-bars fa-lg"></i></button>
             <!-- Navbar Search-->
             <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
                 <div class="input-group">
-                    <input class="form-control" type="text" placeholder="Buscar..." aria-label="Search for..." aria-describedby="btnNavbarSearch" />
-                    <button class="btn btn-light" id="btnNavbarSearch" type="button"><i class="fas fa-search text-cyan-600"></i></button>
+                    <input class="form-control form-control-search" type="text" placeholder="Buscar..." aria-label="Search for..." aria-describedby="btnNavbarSearch" />
+                    <button class="btn btn-search" id="btnNavbarSearch" type="button"><i class="fas fa-search"></i></button>
                 </div>
             </form>
             <!-- Navbar-->
             <ul class="navbar-nav ms-auto ms-md-0 me-3 me-lg-4">
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-user fa-fw"></i>
-                </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="/myprofile">MyProfile</a></li>
+                    <a class="nav-link dropdown-toggle text-white" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user-circle fa-lg fa-fw"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="navbarDropdown">
+                        <li><div class="dropdown-header">Cuenta</div></li>
+                        <li><a class="dropdown-item" href="/myprofile"><i class="fas fa-id-card me-2 text-primary"></i> Mi Perfil</a></li>
                         <li><hr class="dropdown-divider" /></li>
-                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión</a></li>
                     </ul>
                 </li>
             </ul>
         </nav>
+        
         <div id="layoutSidenav">
             <div id="layoutSidenav_nav">
-                <nav class="sb-sidenav accordion" id="sidenavAccordion" style="background: linear-gradient(180deg, #164e63 0%, #0f766e 50%, #065f46 100%);">
+                <nav class="sb-sidenav accordion" id="sidenavAccordion">
                     <div class="sb-sidenav-menu">
                         <div class="nav">
-                            <div class="sb-sidenav-menu-heading text-cyan-200">Sistema Principal</div>
-                            <a class="nav-link text-white" href="{{ url_for('dashboard') }}">
-                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-tachometer-alt"></i></div>
+                            <!-- SECCIÓN: SISTEMA PRINCIPAL -->
+                            <div class="sb-sidenav-menu-heading">Sistema Principal</div>
+                            
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
                                 Panel de Control
                             </a>
-                            <a class="nav-link text-white" href="{{ url_for('aspersores') }}">
-                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-fish"></i></div>
+                            
+                            <a class="nav-link" href="{{ url_for('aspersores') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-fish"></i></div>
                                 Peceras
                             </a>
-                            <!-- Mostrar "Users" solo si el tipo de usuario es "admin" -->
-                        {% if tipo_usuario == "admin" %}
-                        <a class="nav-link text-white" href="{{ url_for('users') }}">
-                            <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-users"></i></div>
-                            Usuarios
-                        </a>
-                        {% endif %}
                             
-                            <div class="sb-sidenav-menu-heading text-cyan-200">Monitoreo</div>
+                            <!-- Mostrar "Users" solo si el tipo de usuario es "admin" -->
+                            {% if tipo_usuario == "admin" %}
+                            <a class="nav-link" href="{{ url_for('users') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-users-cog"></i></div>
+                                Usuarios
+                            </a>
+                            {% endif %}
+                            
+                            <!-- SECCIÓN: MONITOREO -->
+                            <div class="sb-sidenav-menu-heading">Monitoreo</div>
+                            
                             <!-- Sección de Gráficas con desplegables -->
                             <div class="nav-item">
-                                <a class="nav-link text-white collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#chartsSubmenu" aria-expanded="false" aria-controls="chartsSubmenu">
-                                    <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-chart-line"></i></div>
+                                <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#chartsSubmenu" aria-expanded="false" aria-controls="chartsSubmenu">
+                                    <div class="sb-nav-link-icon"><i class="fas fa-chart-line"></i></div>
                                     Gráficas y Tendencias
-                                    <div class="sb-sidenav-collapse-arrow text-cyan-300"><i class="fas fa-angle-down"></i></div>
+                                    <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
                                 </a>
-                                <div class="collapse" id="chartsSubmenu" data-bs-parent=".nav">
-                                    <nav class="sb-sidenav-menu-nested nav" style="background: rgba(6, 182, 212, 0.1); margin-left: 1rem; border-radius: 8px; margin-top: 0.5rem; margin-bottom: 0.5rem;">
-                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}" 
-                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
-                                           onmouseover="this.style.background='rgba(6, 182, 212, 0.3)'; this.style.transform='translateX(5px)'"
-                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
-                                            <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-chart-area"></i></div>
+                                <div class="collapse" id="chartsSubmenu" data-bs-parent="#sidenavAccordion">
+                                    <nav class="sb-sidenav-menu-nested nav">
+                                        <a class="nav-link" href="{{ url_for('charts') }}">
+                                            <div class="sb-nav-link-icon"><i class="fas fa-chart-area"></i></div>
                                             Panel General
                                         </a>
-                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=temperatura" 
-                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
-                                           onmouseover="this.style.background='rgba(251, 191, 36, 0.3)'; this.style.transform='translateX(5px)'"
-                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
-                                            <div class="sb-nav-link-icon text-yellow-400"><i class="fas fa-thermometer-half"></i></div>
+                                        
+                                        <!-- Enlaces con clases para colores específicos en hover (ver CSS arriba) -->
+                                        <a class="nav-link sensor-temp" href="{{ url_for('charts') }}?sensor=temperatura">
+                                            <div class="sb-nav-link-icon text-warning"><i class="fas fa-thermometer-half"></i></div>
                                             Temperatura
                                         </a>
-                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=humedad" 
-                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
-                                           onmouseover="this.style.background='rgba(59, 130, 246, 0.3)'; this.style.transform='translateX(5px)'"
-                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
-                                            <div class="sb-nav-link-icon text-blue-400"><i class="fas fa-tint"></i></div>
+                                        
+                                        <a class="nav-link sensor-hum" href="{{ url_for('charts') }}?sensor=humedad">
+                                            <div class="sb-nav-link-icon text-info"><i class="fas fa-tint"></i></div>
                                             Humedad
                                         </a>
-                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=ultrasonico" 
-                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
-                                           onmouseover="this.style.background='rgba(34, 197, 94, 0.3)'; this.style.transform='translateX(5px)'"
-                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
-                                            <div class="sb-nav-link-icon text-green-400"><i class="fas fa-ruler"></i></div>
+                                        
+                                        <a class="nav-link sensor-level" href="{{ url_for('charts') }}?sensor=ultrasonico">
+                                            <div class="sb-nav-link-icon text-success"><i class="fas fa-ruler"></i></div>
                                             Nivel de Agua
                                         </a>
-                                        <a class="nav-link text-white py-2 px-3 rounded-2 mb-1" href="{{ url_for('charts') }}?sensor=calidad" 
-                                           style="transition: all 0.3s ease; background: rgba(255, 255, 255, 0.1);"
-                                           onmouseover="this.style.background='rgba(236, 72, 153, 0.3)'; this.style.transform='translateX(5px)'"
-                                           onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.transform='translateX(0)'">
-                                            <div class="sb-nav-link-icon text-pink-400"><i class="fas fa-water"></i></div>
+                                        
+                                        <a class="nav-link sensor-qual" href="{{ url_for('charts') }}?sensor=calidad">
+                                            <div class="sb-nav-link-icon text-danger"><i class="fas fa-water"></i></div>
                                             Calidad del Agua
                                         </a>
                                     </nav>
                                 </div>
                             </div>
+                            
                             {% if tipo_usuario == 'admin' %}
-                            <a class="nav-link text-white" href="{{ url_for('tables') }}">
-                                <div class="sb-nav-link-icon text-cyan-300"><i class="fas fa-database"></i></div>
+                            <a class="nav-link" href="{{ url_for('tables') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-database"></i></div>
                                 Base de Datos
                             </a>
                             {% endif %}
                         </div>
                     </div>
-                    <div class="sb-sidenav-footer" style="background: linear-gradient(135deg, #0f766e 0%, #065f46 100%); border-top: 1px solid rgba(6, 182, 212, 0.3);">
-                        <div class="small text-cyan-200">Conectado como: {{ nombre_usuario }}</div>
-                        <div class="text-white fw-bold">AquaZen IoT</div>
+                    
+                    <div class="sb-sidenav-footer text-white" style="background: rgba(0,0,0,0.2);">
+                        <div class="small text-white-50">Conectado como:</div>
+                        <div class="fw-bold"><i class="fas fa-user-circle me-1"></i> {{ nombre_usuario }}</div>
                     </div>
                 </nav>
             </div>
+            
             <div id="layoutSidenav_content">
-            <!-- content-->
+                <!-- Contenido Principal -->
                 <main>
                     {% block content %}{% endblock %}
                 </main>
-                <footer class="py-4 mt-auto" style="background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);">
+                
+                <!-- Footer -->
+                <footer class="py-4 mt-auto">
                     <div class="container-fluid px-4">
                         <div class="d-flex align-items-center justify-content-between small">
-                            <div class="text-cyan-700">Copyright © AquaZen 2024 - Tecnología en Acuicultura</div>
+                            <div class="text-muted">Copyright &copy; AquaZen 2024 - Tecnología en Acuicultura</div>
                             <div>
-                                <a href="#" class="text-cyan-600 text-decoration-none">Política de Privacidad</a>
-                                <span class="text-cyan-500">·</span>
-                                <a href="#" class="text-cyan-600 text-decoration-none">Términos y Condiciones</a>
+                                <a href="#" class="text-decoration-none text-info">Privacidad</a>
+                                &middot;
+                                <a href="#" class="text-decoration-none text-info">Términos</a>
                             </div>
                         </div>
                     </div>
                 </footer>
             </div>
         </div>
+        
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
         <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js" crossorigin="anonymous"></script>
