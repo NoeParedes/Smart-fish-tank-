@@ -17,6 +17,8 @@ import io
 import base64
 import numpy as np
 from statistics import mean, stdev
+import serial
+import time
 from config import (
     DATABASE,
     MQTT_BROKER,
@@ -1472,426 +1474,928 @@ def eliminar_usuario():
         return jsonify({"error": "Acceso no autorizado"}), 401
 
 
-@app.route('/cambiar_modo', methods=['POST'])
-def cambiar_modo():
-    data = request.get_json()
-    modo = data.get('modo')
+# API para control de motores (sin MQTT, usando Serial o HTTP directo)
+# Configuración del puerto Serial (Ajustar COM según corresponda)
+SERIAL_PORT = 'COM8'
+BAUD_RATE = 9600
+arduino_serial = None
 
-    if modo not in ['automatico', 'manual']:
-        return jsonify({"error": "Modo no válido"}), 400
+def init_serial_connection():
+    global arduino_serial
+    try:
+        if arduino_serial is None or not arduino_serial.is_open:
+            arduino_serial = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+            time.sleep(2) # Esperar a que el Arduino se reinicie
+            print(f"Conexión Serial establecida en {SERIAL_PORT}")
+    except Exception as e:
+        print(f"No se pudo conectar al puerto Serial {SERIAL_PORT}: {e}")
 
-    # Aquí puedes agregar la lógica para manejar el modo automático/manual
-    # Por ejemplo, guardar el estado en la base de datos o en la sesión
+# Intentar conectar al inicio (opcional, o hacerlo en la primera petición)
+# init_serial_connection()
 
-    return jsonify({"message": f"Modo cambiado a {modo}"}), 200
+def send_serial_command(command):
+    global arduino_serial
+    try:
+        # Asegurar conexión
+        if arduino_serial is None or not arduino_serial.is_open:
+            init_serial_connection()
+            
+        if arduino_serial and arduino_serial.is_open:
+            arduino_serial.write(f"{command}\n".encode())
+            print(f"Comando Serial enviado: {command}")
+            return True
+        else:
+            print("Puerto Serial no disponible")
+            return False
+    except serial.SerialException as e:
+        print(f"Error Serial: {e}")
+        # Intentar cerrar para reiniciar en la próxima
+        if arduino_serial:
+            try:
+                arduino_serial.close()
+            except:
+                pass
+        arduino_serial = None
+        return False
+    except Exception as e:
+        print(f"Error inesperado en Serial: {e}")
+        return False
 
-@app.route('/camara/<int:id_aspersor>', methods=['GET'])
-def ver_camara(id_aspersor):
+@app.route('/api/control_motor', methods=['POST'])
+def control_motor():
+    try:
+        data = request.get_json()
+        id_aspersor = data.get('id_aspersor')
+        motor = data.get('motor') # 'servo', 'bomba1', 'bomba2'
+        estado = data.get('estado') # 'on', 'off'
+        
+        print(f"Comando recibido: Motor {motor} -> {estado} (Aspersor {id_aspersor})")
+        
+        # Mapeo de comandos para el Arduino
+        # Protocolo: M1:1 (Servo ON), M2:0 (Bomba1 OFF), etc.
+        motor_map = {
+            'servo': 'M1',
+            'bomba1': 'M2',
+            'bomba2': 'M3'
+        }
+        
+        state_val = '1' if estado == 'on' else '0'
+        
+        if motor in motor_map:
+            cmd_code = motor_map[motor]
+            command = f"{cmd_code}:{state_val}"
+            
+            # Enviar comando por Serial
+            success = send_serial_command(command)
+            
+            if success:
+                return jsonify({"success": True, "message": f"Motor {motor} {estado} enviado por Serial"})
+            else:
+                return jsonify({"success": False, "error": "No se pudo conectar con el Arduino (Serial Error)"}), 500
+        else:
+             return jsonify({"success": False, "error": "Motor desconocido"}), 400
+        
+    except Exception as e:
+        print(f"Error control motor: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/cambiar_modo_motor', methods=['POST'])
+def cambiar_modo_motor():
+    try:
+        data = request.get_json()
+        id_aspersor = data.get('id_aspersor')
+        modo = data.get('modo') # 'manual', 'auto'
+        
+        print(f"Cambio de modo: Aspersor {id_aspersor} -> {modo}")
+        
+        # Protocolo: AUTO o MANUAL
+        command = "AUTO" if modo == 'auto' else "MANUAL"
+        
+        success = send_serial_command(command)
+        
+        if success:
+            return jsonify({"success": True, "message": f"Modo cambiado a {modo}"})
+        else:
+            return jsonify({"success": False, "error": "No se pudo conectar con el Arduino (Serial Error)"}), 500
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/camara/<int:id_aspersor>')
+def camara(id_aspersor):
     if 'id_usuario' not in session:
         return redirect(url_for('login'))
-    
+        
     connection = get_db_connection()
     if not connection:
-        flash('Error al conectar con la base de datos.', 'error')
+        flash('Error de conexión', 'error')
+        return redirect(url_for('dashboard'))
+        
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM aspersores WHERE id_aspersor = ?", (id_aspersor,))
+    aspersor = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if not aspersor:
+        flash('Pecera no encontrada', 'error')
         return redirect(url_for('aspersores'))
-    
-    try:
-        cursor = connection.cursor()
-        cursor.execute("""
-            SELECT a.nombre, a.camera_url, a.id_usuario 
-            FROM aspersores a 
-            WHERE a.id_aspersor = ?
-        """, (id_aspersor,))
-        aspersor = cursor.fetchone()
-        cursor.close()
-        connection.close()
         
-        if not aspersor:
-            flash('Aspersor no encontrado.', 'error')
-            return redirect(url_for('aspersores'))
-        
-        # Verificar permisos
-        if session['tipo_usuario'] != 'admin' and aspersor['id_usuario'] != session['id_usuario']:
-            flash('No tienes permiso para ver esta cámara.', 'error')
-            return redirect(url_for('aspersores'))
-        
-        return render_template('camera.html', 
-                             aspersor=aspersor,
-                             id_aspersor=id_aspersor,
-                             nombre_usuario=session['nombre_usuario'],
-                             tipo_usuario=session['tipo_usuario'])
-    except Exception as e:
-        print(f"Error al obtener información del aspersor: {e}")
-        flash('Error al obtener la información del aspersor.', 'error')
-        return redirect(url_for('aspersores'))
+    return render_template('camera.html', aspersor=aspersor)
 
-# Función para generar gráficos para PDF
-def generar_grafico_sensor(datos, titulo, ylabel, color='#0369A1', formato_fecha='%H:%M'):
-    if not datos:
-        return None
-    
-    plt.style.use('default')
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    # Procesar datos
-    fechas = [datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')) for item in datos]
-    valores = [float(item.get('valor', item.get('distance_cm', 0))) for item in datos]
-    
-    ax.plot(fechas, valores, color=color, linewidth=2, marker='o', markersize=4)
-    ax.fill_between(fechas, valores, alpha=0.3, color=color)
-    
-    ax.set_title(titulo, fontsize=14, fontweight='bold', pad=20)
-    ax.set_xlabel('Tiempo', fontsize=12)
-    ax.set_ylabel(ylabel, fontsize=12)
-    ax.grid(True, alpha=0.3)
-    
-    # Formatear fechas en el eje X
-    if len(fechas) > 0:
-        if (fechas[-1] - fechas[0]).days > 1:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %H:%M'))
-        else:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter(formato_fecha))
-    
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    
-    # Guardar como bytes
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-    buffer.seek(0)
-    image_data = buffer.getvalue()
-    buffer.close()
-    plt.close()
-    
-    return image_data
 
-# Función para calcular estadísticas
-def calcular_estadisticas(datos):
-    if not datos:
-        return {}
-    
-    valores = [float(item.get('valor', item.get('distance_cm', 0))) for item in datos]
-    
-    return {
-        'promedio': round(mean(valores), 2) if valores else 0,
-        'maximo': round(max(valores), 2) if valores else 0,
-        'minimo': round(min(valores), 2) if valores else 0,
-        'desviacion': round(stdev(valores), 2) if len(valores) > 1 else 0,
-        'total_lecturas': len(valores)
-    }
-
-# Ruta para generar reporte PDF
 @app.route('/generar_reporte')
 def generar_reporte():
     if 'id_usuario' not in session:
         return redirect(url_for('login'))
     
+    dias = request.args.get('dias', 30, type=int)
+    
+    # Obtener información del usuario actual
+    id_usuario = session['id_usuario']
     tipo_usuario = session.get('tipo_usuario', 'usuario')
     nombre_usuario = session.get('nombre_usuario', 'Usuario')
+    es_admin = (tipo_usuario == 'admin')
     
-    # Obtener parámetros
-    dias = request.args.get('dias', 7, type=int)
-    fecha_limite = datetime.now() - timedelta(days=dias)
-    
-    conn = sqlite3.connect('icc_database.db')
-    conn.row_factory = sqlite3.Row
-    
-    # Buffer para el PDF
+    # Crear buffer para el PDF
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
-    story = []
+    
+    # Crear documento PDF
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                           rightMargin=50, leftMargin=50, 
+                           topMargin=40, bottomMargin=40)
+    
+    elements = []
     styles = getSampleStyleSheet()
     
     # Estilos personalizados
-    titulo_style = ParagraphStyle(
+    title_style = ParagraphStyle(
         'CustomTitle',
-        parent=styles['Title'],
-        fontSize=24,
-        textColor=colors.HexColor('#0369A1'),
-        spaceAfter=30,
-        alignment=1  # Centrado
+        parent=styles['Heading1'],
+        fontSize=22,
+        spaceAfter=20,
+        textColor=colors.HexColor('#0891b2'),
+        alignment=1
     )
     
-    subtitulo_style = ParagraphStyle(
-        'CustomSubtitle',
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.gray,
+        alignment=1
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionTitle',
         parent=styles['Heading2'],
-        fontSize=16,
-        textColor=colors.HexColor('#0F4C75'),
-        spaceAfter=20
+        fontSize=14,
+        spaceBefore=15,
+        spaceAfter=10,
+        textColor=colors.HexColor('#0e7490'),
     )
     
-    # Título principal
-    story.append(Paragraph('🐠 AquaZen - Reporte de Monitoreo', titulo_style))
-    story.append(Paragraph(f'Sistema de Acuicultura Inteligente', styles['Normal']))
-    story.append(Spacer(1, 20))
+    normal_style = ParagraphStyle(
+        'NormalText',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6,
+    )
     
-    # Información del reporte
-    info_data = [
-        ['Generado para:', nombre_usuario],
-        ['Tipo de usuario:', tipo_usuario.title()],
-        ['Período analizado:', f'Últimos {dias} días'],
-        ['Fecha de generación:', datetime.now().strftime('%d/%m/%Y %H:%M')]
-    ]
+    alert_style = ParagraphStyle(
+        'AlertText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#dc2626'),
+        spaceAfter=4,
+    )
     
-    info_table = Table(info_data, colWidths=[2*inch, 3*inch])
-    info_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#E0F2FE')),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#B4D4DA'))
-    ]))
-    story.append(info_table)
-    story.append(Spacer(1, 30))
+    success_style = ParagraphStyle(
+        'SuccessText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#059669'),
+        spaceAfter=4,
+    )
     
-    # Obtener datos de sensores
-    sensores_config = {
-        'humedad': {
-            'nombre': 'Humedad Relativa',
-            'unidad': '%',
-            'color': '#059669',
-            'rango_optimo': (40, 70),
-            'campo_valor': 'humedad',
-            'campo_fecha': 'fecha_hora'
-        },
-        'ultrasonico': {
-            'nombre': 'Nivel del Agua',
-            'unidad': 'cm',
-            'color': '#2563EB',
-            'rango_optimo': (15, 25),
-            'campo_valor': 'nivel',
-            'campo_fecha': 'fecha_hora'
-        },
-        'calidad': {
-            'nombre': 'Calidad del Agua',
-            'unidad': 'pH',
-            'color': '#7C3AED',
-            'rango_optimo': (6.5, 8.0),
-            'campo_valor': 'calidad',
-            'campo_fecha': 'fecha_hora'
-        }
-    }
+    warning_style = ParagraphStyle(
+        'WarningText',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#d97706'),
+        spaceAfter=4,
+    )
     
-    # Resumen ejecutivo para admin
-    if tipo_usuario == 'admin':
-        story.append(Paragraph('📊 Resumen Ejecutivo', subtitulo_style))
+    # ═══════════════════════════════════════════════════════════════
+    # PORTADA
+    # ═══════════════════════════════════════════════════════════════
+    elements.append(Spacer(1, 50))
+    elements.append(Paragraph("🐟 REPORTE TÉCNICO AQUAZEN", title_style))
+    elements.append(Paragraph("Sistema Inteligente de Monitoreo de Peceras", subtitle_style))
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph(f"Período de Análisis: Últimos {dias} días", subtitle_style))
+    elements.append(Paragraph(f"Fecha de Generación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", subtitle_style))
+    elements.append(Paragraph(f"Usuario: {nombre_usuario}", subtitle_style))
+    elements.append(Paragraph(f"Tipo de Reporte: {'Administrador (Completo)' if es_admin else 'Personal'}", subtitle_style))
+    elements.append(Spacer(1, 30))
+    
+    # Contenido del reporte
+    elements.append(Paragraph("📋 Contenido del Reporte:", normal_style))
+    
+    if es_admin:
+        contenido_items = [
+            "• Resumen de todas las peceras del sistema",
+            "• Gráficas de tendencias de todos los sensores",
+            "• Análisis estadístico completo",
+            "• Monitoreo de temperatura y nivel",
+            "• Análisis de calidad del agua",
+            "• Alertas y recomendaciones técnicas",
+            "• Diagnóstico completo del sistema",
+            "• Histórico por período seleccionado",
+            "• Vista de todos los usuarios (solo admin)"
+        ]
+    else:
+        contenido_items = [
+            "• Resumen de mis peceras",
+            "• Gráficas de tendencias de mis sensores",
+            "• Análisis estadístico de mis peceras",
+            "• Monitoreo de temperatura y nivel",
+            "• Análisis de calidad del agua",
+            "• Alertas y recomendaciones técnicas",
+            "• Diagnóstico de mis peceras",
+            "• Histórico por período seleccionado"
+        ]
+    for item in contenido_items:
+        elements.append(Paragraph(item, normal_style))
+    
+    elements.append(Spacer(1, 30))
+    elements.append(Paragraph("─" * 70, subtitle_style))
+    
+    # Conexión a BD para obtener datos
+    connection = get_db_connection()
+    alertas = []
+    recomendaciones = []
+    
+    # Variables para almacenar datos de gráficas
+    humedad_data = []
+    temp_data = []
+    nivel_data = []
+    calidad_data = []
+    fechas_humedad = []
+    fechas_nivel = []
+    fechas_calidad = []
+    
+    if connection:
+        cursor = connection.cursor()
+        fecha_inicio = datetime.now() - timedelta(days=dias)
+        fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d %H:%M:%S')
         
-        resumen_data = [['Sensor', 'Estado', 'Promedio', 'Lecturas', 'Observaciones']]
+        # Obtener IDs de peceras del usuario (solo sus peceras si no es admin)
+        if es_admin:
+            cursor.execute("SELECT id_aspersor FROM aspersores")
+        else:
+            cursor.execute("SELECT id_aspersor FROM aspersores WHERE id_usuario = ?", (id_usuario,))
+        mis_peceras = [row['id_aspersor'] for row in cursor.fetchall()]
         
-        for sensor, config in sensores_config.items():
-            tabla_sensor = f'lecturas_{sensor}'
-            try:
-                print(f"DEBUG RESUMEN: Consultando tabla {tabla_sensor}")
-                cursor = conn.execute(f"""
-                    SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
-                    FROM {tabla_sensor} 
-                    ORDER BY {config['campo_fecha']} DESC
-                    LIMIT 50
-                """)
-                
-                datos = [dict(row) for row in cursor.fetchall()]
-                print(f"DEBUG RESUMEN: {sensor} - Se encontraron {len(datos)} registros")
-                stats = calcular_estadisticas(datos)
-                
-                if stats and stats['total_lecturas'] > 0:
-                    promedio = stats['promedio']
-                    rango_min, rango_max = config['rango_optimo']
-                    
-                    if rango_min <= promedio <= rango_max:
-                        estado = '✅ Óptimo'
-                    elif promedio < rango_min:
-                        estado = '⚠️ Bajo'
-                    else:
-                        estado = '⚠️ Alto'
-                    
-                    observacion = f"Rango: {rango_min}-{rango_max} {config['unidad']}"
-                else:
-                    estado = '❌ Sin datos'
-                    promedio = 'N/A'
-                    observacion = 'Sin lecturas en el período'
-                
-                resumen_data.append([
-                    config['nombre'],
-                    estado,
-                    f"{promedio} {config['unidad']}" if promedio != 'N/A' else 'N/A',
-                    str(stats.get('total_lecturas', 0)),
-                    observacion
+        # Si el usuario no tiene peceras, mostrar mensaje
+        if not mis_peceras:
+            elements.append(Paragraph("⚠️ No tienes peceras registradas en el sistema.", warning_style))
+            elements.append(Spacer(1, 20))
+        
+        # Crear placeholder para consultas (para filtrar por peceras del usuario)
+        placeholders = ','.join('?' * len(mis_peceras)) if mis_peceras else '0'
+        
+        # ═══════════════════════════════════════════════════════════════
+        # OBTENER DATOS PARA GRÁFICAS (filtrados por peceras del usuario)
+        # ═══════════════════════════════════════════════════════════════
+        
+        # Datos de humedad/temperatura para gráficas
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT fecha_hora, humedad, raw as temperatura
+                FROM lecturas_humedad
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+                ORDER BY fecha_hora ASC
+                LIMIT 50
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT fecha_hora, humedad, raw as temperatura
+                FROM lecturas_humedad
+                WHERE 1=0
+            """)
+        lecturas_hum = cursor.fetchall()
+        for lectura in lecturas_hum:
+            if lectura['fecha_hora']:
+                fechas_humedad.append(lectura['fecha_hora'])
+                humedad_data.append(lectura['humedad'] if lectura['humedad'] else 0)
+                temp_data.append(lectura['temperatura'] if lectura['temperatura'] else 0)
+        
+        # Datos de nivel de agua para gráficas
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT fecha_hora, nivel
+                FROM lecturas_ultrasonico
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+                ORDER BY fecha_hora ASC
+                LIMIT 50
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT fecha_hora, nivel
+                FROM lecturas_ultrasonico
+                WHERE 1=0
+            """)
+        lecturas_niv = cursor.fetchall()
+        for lectura in lecturas_niv:
+            if lectura['fecha_hora']:
+                fechas_nivel.append(lectura['fecha_hora'])
+                nivel_data.append(lectura['nivel'] if lectura['nivel'] else 0)
+        
+        # Datos de calidad para gráficas
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT fecha_hora, calidad
+                FROM lecturas_calidad
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+                ORDER BY fecha_hora ASC
+                LIMIT 50
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT fecha_hora, calidad
+                FROM lecturas_calidad
+                WHERE 1=0
+            """)
+        lecturas_cal = cursor.fetchall()
+        for lectura in lecturas_cal:
+            if lectura['fecha_hora']:
+                fechas_calidad.append(lectura['fecha_hora'])
+                calidad_data.append(lectura['calidad'] if lectura['calidad'] else 0)
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 1: RESUMEN DE PECERAS
+        # ═══════════════════════════════════════════════════════════════
+        if es_admin:
+            elements.append(Paragraph("📊 1. RESUMEN DE TODAS LAS PECERAS (ADMIN)", section_style))
+            cursor.execute("""
+                SELECT a.nombre, a.ubicacion, a.estado, u.nombre as propietario
+                FROM aspersores a
+                LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
+            """)
+        else:
+            elements.append(Paragraph("📊 1. RESUMEN DE MIS PECERAS", section_style))
+            cursor.execute("""
+                SELECT a.nombre, a.ubicacion, a.estado, u.nombre as propietario
+                FROM aspersores a
+                LEFT JOIN usuarios u ON a.id_usuario = u.id_usuario
+                WHERE a.id_usuario = ?
+            """, (id_usuario,))
+        peceras = cursor.fetchall()
+        
+        activas = sum(1 for p in peceras if p['estado'] == 'activo')
+        inactivas = len(peceras) - activas
+        
+        if es_admin:
+            elements.append(Paragraph(f"Total de peceras en el sistema: {len(peceras)}", normal_style))
+        else:
+            elements.append(Paragraph(f"Total de tus peceras: {len(peceras)}", normal_style))
+        elements.append(Paragraph(f"Peceras activas: {activas} | Peceras inactivas: {inactivas}", normal_style))
+        elements.append(Spacer(1, 10))
+        
+        if peceras:
+            if es_admin:
+                # Admin ve todas las columnas incluyendo propietario
+                data = [['Nombre', 'Ubicación', 'Estado', 'Propietario']]
+                for p in peceras:
+                    estado = 'Activo' if p['estado'] == 'activo' else 'Inactivo'
+                    data.append([p['nombre'], p['ubicacion'], estado, p['propietario'] or 'N/A'])
+                col_widths = [110, 130, 70, 110]
+            else:
+                # Usuario normal no necesita ver propietario (es él mismo)
+                data = [['Nombre', 'Ubicación', 'Estado']]
+                for p in peceras:
+                    estado = 'Activo' if p['estado'] == 'activo' else 'Inactivo'
+                    data.append([p['nombre'], p['ubicacion'] or 'N/A', estado])
+                col_widths = [150, 180, 90]
+            
+            table = Table(data, colWidths=col_widths)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891b2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0fdfa')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#67e8f9')),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+            elements.append(table)
+        
+        if inactivas > 0:
+            alertas.append(f"Hay {inactivas} pecera(s) inactiva(s) que requieren revisión")
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 2: GRÁFICAS DE TENDENCIAS DE SENSORES
+        # ═══════════════════════════════════════════════════════════════
+        elements.append(Paragraph("📉 2. GRÁFICAS DE TENDENCIAS DE SENSORES", section_style))
+        elements.append(Paragraph("Visualización de datos de los sensores durante el período seleccionado.", normal_style))
+        elements.append(Spacer(1, 10))
+        
+        # Función auxiliar para crear gráficas
+        def crear_grafica(titulo, fechas, valores, color, ylabel, filename_prefix):
+            if not valores or len(valores) < 2:
+                return None
+            
+            fig, ax = plt.subplots(figsize=(7, 3))
+            
+            # Convertir fechas a índices si son strings
+            x_vals = range(len(valores))
+            
+            # Crear área bajo la curva
+            ax.fill_between(x_vals, valores, alpha=0.3, color=color)
+            ax.plot(x_vals, valores, color=color, linewidth=2, marker='o', markersize=3)
+            
+            ax.set_title(titulo, fontsize=12, fontweight='bold', color='#0891b2')
+            ax.set_ylabel(ylabel, fontsize=9)
+            ax.set_xlabel('Lecturas', fontsize=9)
+            ax.grid(True, alpha=0.3)
+            ax.set_facecolor('#f0fdfa')
+            fig.patch.set_facecolor('white')
+            
+            # Agregar línea de promedio
+            promedio = sum(valores) / len(valores)
+            ax.axhline(y=promedio, color='red', linestyle='--', alpha=0.5, label=f'Promedio: {promedio:.1f}')
+            ax.legend(fontsize=8)
+            
+            # Guardar en buffer
+            img_buffer = io.BytesIO()
+            plt.savefig(img_buffer, format='png', dpi=100, bbox_inches='tight')
+            img_buffer.seek(0)
+            plt.close(fig)
+            
+            return img_buffer
+        
+        # Gráfica 1: Temperatura
+        if temp_data and len(temp_data) >= 2:
+            elements.append(Paragraph("Gráfica de Temperatura:", styles['Heading3']))
+            img_temp = crear_grafica("Tendencia de Temperatura", fechas_humedad, temp_data, '#f59e0b', 'Temperatura (°C)', 'temp')
+            if img_temp:
+                elements.append(Image(img_temp, width=450, height=180))
+            elements.append(Spacer(1, 10))
+        
+        # Gráfica 2: Humedad
+        if humedad_data and len(humedad_data) >= 2:
+            elements.append(Paragraph("Gráfica de Humedad:", styles['Heading3']))
+            img_hum = crear_grafica("Tendencia de Humedad", fechas_humedad, humedad_data, '#3b82f6', 'Humedad (%)', 'hum')
+            if img_hum:
+                elements.append(Image(img_hum, width=450, height=180))
+            elements.append(Spacer(1, 10))
+        
+        # Gráfica 3: Nivel de Agua
+        if nivel_data and len(nivel_data) >= 2:
+            elements.append(Paragraph("Gráfica de Nivel de Agua:", styles['Heading3']))
+            img_nivel = crear_grafica("Tendencia de Nivel de Agua", fechas_nivel, nivel_data, '#22c55e', 'Nivel (cm)', 'nivel')
+            if img_nivel:
+                elements.append(Image(img_nivel, width=450, height=180))
+            elements.append(Spacer(1, 10))
+        
+        # Gráfica 4: Calidad del Agua
+        if calidad_data and len(calidad_data) >= 2:
+            elements.append(Paragraph("Gráfica de Calidad del Agua:", styles['Heading3']))
+            img_cal = crear_grafica("Tendencia de Calidad del Agua", fechas_calidad, calidad_data, '#ec4899', 'Calidad', 'calidad')
+            if img_cal:
+                elements.append(Image(img_cal, width=450, height=180))
+            elements.append(Spacer(1, 10))
+        
+        # Mensaje si no hay datos para gráficas
+        if not (temp_data or humedad_data or nivel_data or calidad_data):
+            elements.append(Paragraph("⚠️ No hay suficientes datos para generar gráficas en el período seleccionado.", warning_style))
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 3: ANÁLISIS ESTADÍSTICO COMPLETO
+        # ═══════════════════════════════════════════════════════════════
+        if es_admin:
+            elements.append(Paragraph("📈 3. ANÁLISIS ESTADÍSTICO COMPLETO (ADMIN)", section_style))
+        else:
+            elements.append(Paragraph("📈 3. ANÁLISIS ESTADÍSTICO DE MIS PECERAS", section_style))
+        
+        # Obtener datos de sensores (humedad/temperatura) - filtrados por peceras
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT AVG(humedad) as promedio, MIN(humedad) as minimo, MAX(humedad) as maximo, 
+                       COUNT(*) as lecturas, 
+                       AVG(raw) as temp_promedio, MIN(raw) as temp_min, MAX(raw) as temp_max
+                FROM lecturas_humedad
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT NULL as promedio, NULL as minimo, NULL as maximo, 
+                       0 as lecturas, NULL as temp_promedio, NULL as temp_min, NULL as temp_max
+            """)
+        humedad_stats = cursor.fetchone()
+        
+        # Obtener datos de ultrasonido (nivel) - filtrados por peceras
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT AVG(nivel) as promedio, MIN(nivel) as minimo, MAX(nivel) as maximo, COUNT(*) as lecturas
+                FROM lecturas_ultrasonico
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT NULL as promedio, NULL as minimo, NULL as maximo, 0 as lecturas
+            """)
+        nivel_stats = cursor.fetchone()
+        
+        # Obtener datos de calidad - filtrados por peceras
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT AVG(calidad) as promedio, MIN(calidad) as minimo, MAX(calidad) as maximo, COUNT(*) as lecturas
+                FROM lecturas_calidad
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT NULL as promedio, NULL as minimo, NULL as maximo, 0 as lecturas
+            """)
+        calidad_stats = cursor.fetchone()
+        
+        # Tabla de estadísticas
+        sensor_data = [['Sensor', 'Promedio', 'Mínimo', 'Máximo', 'Variación', 'Lecturas']]
+        
+        if humedad_stats and humedad_stats['lecturas'] and humedad_stats['lecturas'] > 0:
+            variacion_h = (humedad_stats['maximo'] - humedad_stats['minimo']) if humedad_stats['maximo'] and humedad_stats['minimo'] else 0
+            sensor_data.append([
+                'Humedad',
+                f"{humedad_stats['promedio']:.1f}%" if humedad_stats['promedio'] else 'N/A',
+                f"{humedad_stats['minimo']:.1f}%" if humedad_stats['minimo'] else 'N/A',
+                f"{humedad_stats['maximo']:.1f}%" if humedad_stats['maximo'] else 'N/A',
+                f"±{variacion_h:.1f}%",
+                str(humedad_stats['lecturas'])
+            ])
+            # Agregar temperatura si existe
+            if humedad_stats['temp_promedio']:
+                variacion_t = (humedad_stats['temp_max'] - humedad_stats['temp_min']) if humedad_stats['temp_max'] and humedad_stats['temp_min'] else 0
+                sensor_data.append([
+                    'Temperatura',
+                    f"{humedad_stats['temp_promedio']:.1f}°C" if humedad_stats['temp_promedio'] else 'N/A',
+                    f"{humedad_stats['temp_min']:.1f}°C" if humedad_stats['temp_min'] else 'N/A',
+                    f"{humedad_stats['temp_max']:.1f}°C" if humedad_stats['temp_max'] else 'N/A',
+                    f"±{variacion_t:.1f}°C",
+                    str(humedad_stats['lecturas'])
                 ])
-            except:
-                resumen_data.append([
-                    config['nombre'],
-                    '❌ Error',
-                    'N/A',
-                    '0',
-                    'Error al acceder a datos'
-                ])
         
-        resumen_table = Table(resumen_data, colWidths=[2*inch, 1*inch, 1*inch, 1*inch, 1.5*inch])
-        resumen_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        if nivel_stats and nivel_stats['lecturas'] and nivel_stats['lecturas'] > 0:
+            variacion_n = (nivel_stats['maximo'] - nivel_stats['minimo']) if nivel_stats['maximo'] and nivel_stats['minimo'] else 0
+            sensor_data.append([
+                'Nivel de Agua',
+                f"{nivel_stats['promedio']:.1f} cm" if nivel_stats['promedio'] else 'N/A',
+                f"{nivel_stats['minimo']:.1f} cm" if nivel_stats['minimo'] else 'N/A',
+                f"{nivel_stats['maximo']:.1f} cm" if nivel_stats['maximo'] else 'N/A',
+                f"±{variacion_n:.1f} cm",
+                str(nivel_stats['lecturas'])
+            ])
+            
+        if calidad_stats and calidad_stats['lecturas'] and calidad_stats['lecturas'] > 0:
+            variacion_c = (calidad_stats['maximo'] - calidad_stats['minimo']) if calidad_stats['maximo'] and calidad_stats['minimo'] else 0
+            sensor_data.append([
+                'Calidad Agua',
+                f"{calidad_stats['promedio']:.1f}" if calidad_stats['promedio'] else 'N/A',
+                f"{calidad_stats['minimo']:.1f}" if calidad_stats['minimo'] else 'N/A',
+                f"{calidad_stats['maximo']:.1f}" if calidad_stats['maximo'] else 'N/A',
+                f"±{variacion_c:.1f}",
+                str(calidad_stats['lecturas'])
+            ])
+        
+        if len(sensor_data) > 1:
+            table2 = Table(sensor_data, colWidths=[90, 70, 70, 70, 70, 60])
+            table2.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0e7490')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecfeff')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#06b6d4')),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ]))
+            elements.append(table2)
+        else:
+            elements.append(Paragraph("⚠️ No hay datos de sensores para el período seleccionado.", warning_style))
+            alertas.append("No se registraron lecturas de sensores en el período")
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 4: MONITOREO DE TEMPERATURA Y NIVEL
+        # ═══════════════════════════════════════════════════════════════
+        elements.append(Paragraph("🌡️ 4. MONITOREO DE TEMPERATURA Y NIVEL", section_style))
+        
+        # Análisis de temperatura
+        elements.append(Paragraph("Análisis de Temperatura:", styles['Heading3']))
+        if humedad_stats and humedad_stats['temp_promedio']:
+            temp_prom = humedad_stats['temp_promedio']
+            if temp_prom < 22:
+                elements.append(Paragraph(f"⚠️ Temperatura promedio BAJA: {temp_prom:.1f}°C (Rango óptimo: 24-28°C)", warning_style))
+                alertas.append(f"Temperatura por debajo del rango óptimo: {temp_prom:.1f}°C")
+                recomendaciones.append("Considerar instalar un calentador de acuario")
+            elif temp_prom > 30:
+                elements.append(Paragraph(f"🔴 Temperatura promedio ALTA: {temp_prom:.1f}°C (Rango óptimo: 24-28°C)", alert_style))
+                alertas.append(f"Temperatura por encima del rango seguro: {temp_prom:.1f}°C")
+                recomendaciones.append("Mejorar ventilación o instalar enfriador")
+            else:
+                elements.append(Paragraph(f"✅ Temperatura promedio ÓPTIMA: {temp_prom:.1f}°C", success_style))
+        else:
+            elements.append(Paragraph("Sin datos de temperatura disponibles", normal_style))
+        
+        elements.append(Spacer(1, 10))
+        
+        # Análisis de nivel de agua
+        elements.append(Paragraph("Análisis de Nivel de Agua:", styles['Heading3']))
+        if nivel_stats and nivel_stats['promedio']:
+            nivel_prom = nivel_stats['promedio']
+            if nivel_prom < 10:
+                elements.append(Paragraph(f"🔴 Nivel de agua CRÍTICO: {nivel_prom:.1f} cm", alert_style))
+                alertas.append(f"Nivel de agua crítico: {nivel_prom:.1f} cm")
+                recomendaciones.append("Rellenar pecera urgentemente")
+            elif nivel_prom < 20:
+                elements.append(Paragraph(f"⚠️ Nivel de agua BAJO: {nivel_prom:.1f} cm", warning_style))
+                alertas.append(f"Nivel de agua bajo: {nivel_prom:.1f} cm")
+                recomendaciones.append("Programar relleno de agua")
+            else:
+                elements.append(Paragraph(f"✅ Nivel de agua ADECUADO: {nivel_prom:.1f} cm", success_style))
+        else:
+            elements.append(Paragraph("Sin datos de nivel de agua disponibles", normal_style))
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 5: ANÁLISIS DE CALIDAD DEL AGUA
+        # ═══════════════════════════════════════════════════════════════
+        elements.append(Paragraph("💧 5. ANÁLISIS DE CALIDAD DEL AGUA", section_style))
+        
+        if calidad_stats and calidad_stats['promedio']:
+            calidad_prom = calidad_stats['promedio']
+            
+            # Escala de calidad (asumiendo 0-100 o similar)
+            if calidad_prom >= 80:
+                elements.append(Paragraph(f"✅ Calidad del agua EXCELENTE: {calidad_prom:.1f}/100", success_style))
+                elements.append(Paragraph("El agua presenta condiciones óptimas para los peces.", normal_style))
+            elif calidad_prom >= 60:
+                elements.append(Paragraph(f"✅ Calidad del agua BUENA: {calidad_prom:.1f}/100", success_style))
+                elements.append(Paragraph("El agua está en condiciones aceptables.", normal_style))
+            elif calidad_prom >= 40:
+                elements.append(Paragraph(f"⚠️ Calidad del agua REGULAR: {calidad_prom:.1f}/100", warning_style))
+                alertas.append(f"Calidad del agua en nivel regular: {calidad_prom:.1f}")
+                recomendaciones.append("Realizar cambio parcial de agua (25-30%)")
+                elements.append(Paragraph("Se recomienda realizar mantenimiento preventivo.", normal_style))
+            else:
+                elements.append(Paragraph(f"🔴 Calidad del agua DEFICIENTE: {calidad_prom:.1f}/100", alert_style))
+                alertas.append(f"Calidad del agua crítica: {calidad_prom:.1f}")
+                recomendaciones.append("Cambio de agua urgente (50%)")
+                recomendaciones.append("Verificar filtros y sistema de oxigenación")
+                elements.append(Paragraph("¡ATENCIÓN! Se requiere intervención inmediata.", normal_style))
+            
+            elements.append(Spacer(1, 10))
+            
+            # Parámetros detallados
+            elements.append(Paragraph("Parámetros registrados:", styles['Heading3']))
+            params_data = [
+                ['Parámetro', 'Valor', 'Estado'],
+                ['Calidad General', f"{calidad_prom:.1f}", 'Óptimo' if calidad_prom >= 60 else 'Revisar'],
+                ['Lecturas en período', str(calidad_stats['lecturas']), 'OK'],
+                ['Valor máximo', f"{calidad_stats['maximo']:.1f}" if calidad_stats['maximo'] else 'N/A', '-'],
+                ['Valor mínimo', f"{calidad_stats['minimo']:.1f}" if calidad_stats['minimo'] else 'N/A', '-'],
+            ]
+            
+            table3 = Table(params_data, colWidths=[150, 100, 100])
+            table3.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891b2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0fdfa')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#67e8f9')),
+            ]))
+            elements.append(table3)
+        else:
+            elements.append(Paragraph("⚠️ No hay datos de calidad de agua para el período seleccionado.", warning_style))
+            alertas.append("Sin datos de calidad de agua registrados")
+            recomendaciones.append("Verificar sensor de calidad de agua")
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 6: HISTÓRICO POR PERÍODO
+        # ═══════════════════════════════════════════════════════════════
+        elements.append(Paragraph("📅 6. HISTÓRICO POR PERÍODO", section_style))
+        
+        # Obtener últimas lecturas - filtradas por peceras del usuario
+        if mis_peceras:
+            cursor.execute(f"""
+                SELECT fecha_hora, humedad, raw as temperatura
+                FROM lecturas_humedad
+                WHERE fecha_hora >= ? AND id_aspersor IN ({placeholders})
+                ORDER BY fecha_hora DESC
+                LIMIT 10
+            """, (fecha_inicio_str, *mis_peceras))
+        else:
+            cursor.execute("""
+                SELECT fecha_hora, humedad, raw as temperatura
+                FROM lecturas_humedad
+                WHERE 1=0
+            """)
+        ultimas_humedad = cursor.fetchall()
+        
+        if ultimas_humedad:
+            elements.append(Paragraph("Últimas 10 lecturas de Humedad/Temperatura:", styles['Heading3']))
+            hist_data = [['Fecha/Hora', 'Humedad', 'Temperatura']]
+            for lectura in ultimas_humedad:
+                fecha = lectura['fecha_hora'] if lectura['fecha_hora'] else 'N/A'
+                hist_data.append([
+                    str(fecha)[:19],
+                    f"{lectura['humedad']:.1f}%" if lectura['humedad'] else 'N/A',
+                    f"{lectura['temperatura']:.1f}°C" if lectura['temperatura'] else 'N/A'
+                ])
+            
+            table4 = Table(hist_data, colWidths=[160, 100, 100])
+            table4.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0e7490')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecfeff')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#06b6d4')),
+            ]))
+            elements.append(table4)
+        else:
+            elements.append(Paragraph("No hay registros históricos para el período.", normal_style))
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 7: ALERTAS Y RECOMENDACIONES
+        # ═══════════════════════════════════════════════════════════════
+        elements.append(Paragraph("⚠️ 7. ALERTAS Y RECOMENDACIONES TÉCNICAS", section_style))
+        
+        if alertas:
+            elements.append(Paragraph("Alertas detectadas:", styles['Heading3']))
+            for i, alerta in enumerate(alertas, 1):
+                elements.append(Paragraph(f"  {i}. 🔔 {alerta}", alert_style))
+        else:
+            elements.append(Paragraph("✅ No se detectaron alertas críticas en el período.", success_style))
+        
+        elements.append(Spacer(1, 10))
+        
+        if recomendaciones:
+            elements.append(Paragraph("Recomendaciones:", styles['Heading3']))
+            for i, rec in enumerate(recomendaciones, 1):
+                elements.append(Paragraph(f"  {i}. 💡 {rec}", normal_style))
+        else:
+            elements.append(Paragraph("✅ Sistema funcionando correctamente. Mantener monitoreo regular.", success_style))
+        
+        elements.append(Spacer(1, 20))
+        
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 8: DIAGNÓSTICO COMPLETO DEL SISTEMA
+        # ═══════════════════════════════════════════════════════════════
+        if es_admin:
+            elements.append(Paragraph("🔧 8. DIAGNÓSTICO COMPLETO DEL SISTEMA (ADMIN)", section_style))
+        else:
+            elements.append(Paragraph("🔧 8. DIAGNÓSTICO DE MIS PECERAS", section_style))
+        
+        # Calcular puntuación general
+        puntuacion = 100
+        if alertas:
+            puntuacion -= len(alertas) * 15
+        if puntuacion < 0:
+            puntuacion = 0
+        
+        if puntuacion >= 80:
+            estado_general = "EXCELENTE"
+            color_estado = success_style
+        elif puntuacion >= 60:
+            estado_general = "BUENO"
+            color_estado = success_style
+        elif puntuacion >= 40:
+            estado_general = "REGULAR"
+            color_estado = warning_style
+        else:
+            estado_general = "CRÍTICO"
+            color_estado = alert_style
+        
+        elements.append(Paragraph(f"Estado General del Sistema: {estado_general} ({puntuacion}/100 puntos)", color_estado))
+        elements.append(Spacer(1, 10))
+        
+        diag_data = [
+            ['Componente', 'Estado', 'Observaciones'],
+            ['Sensores de Humedad', '✅ Operativo' if humedad_stats and humedad_stats['lecturas'] else '❌ Sin datos', f"{humedad_stats['lecturas'] if humedad_stats else 0} lecturas"],
+            ['Sensor Ultrasónico', '✅ Operativo' if nivel_stats and nivel_stats['lecturas'] else '❌ Sin datos', f"{nivel_stats['lecturas'] if nivel_stats else 0} lecturas"],
+            ['Sensor de Calidad', '✅ Operativo' if calidad_stats and calidad_stats['lecturas'] else '❌ Sin datos', f"{calidad_stats['lecturas'] if calidad_stats else 0} lecturas"],
+            ['Peceras Registradas', '✅ Activas' if activas > 0 else '⚠️ Revisar', f"{activas} de {len(peceras)} activas"],
+            ['Conectividad', '✅ OK', 'Sistema en línea'],
+        ]
+        
+        table5 = Table(diag_data, colWidths=[130, 100, 150])
+        table5.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891b2')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#B4D4DA')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')])
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0fdfa')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#67e8f9')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
-        story.append(resumen_table)
-        story.append(Spacer(1, 30))
-    
-    # Análisis detallado por sensor
-    for sensor, config in sensores_config.items():
-        if tipo_usuario == 'usuario' and sensor == 'calidad':
-            continue  # Los usuarios no ven datos de calidad
+        elements.append(table5)
         
-        story.append(Paragraph(f'📈 {config["nombre"]}', subtitulo_style))
-        
-        tabla_sensor = f'lecturas_{sensor}'
-        try:
-            print(f"DEBUG: Consultando tabla {tabla_sensor}")
-            cursor = conn.execute(f"""
-                SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
-                FROM {tabla_sensor} 
-                ORDER BY {config['campo_fecha']} DESC
-                LIMIT 100
+        # ═══════════════════════════════════════════════════════════════
+        # SECCIÓN 9: LISTADO DE USUARIOS (SOLO ADMIN)
+        # ═══════════════════════════════════════════════════════════════
+        if es_admin:
+            elements.append(Spacer(1, 20))
+            elements.append(Paragraph("👥 9. LISTADO DE USUARIOS DEL SISTEMA (ADMIN)", section_style))
+            
+            cursor.execute("""
+                SELECT u.id_usuario, u.nombre, u.correo, u.tipo_usuario, u.fecha_creacion,
+                       (SELECT COUNT(*) FROM aspersores a WHERE a.id_usuario = u.id_usuario) as num_peceras
+                FROM usuarios u
+                ORDER BY u.tipo_usuario DESC, u.nombre ASC
             """)
+            usuarios = cursor.fetchall()
             
-            datos = [dict(row) for row in cursor.fetchall()]
-            print(f"DEBUG: {sensor} - Se encontraron {len(datos)} registros")
+            elements.append(Paragraph(f"Total de usuarios registrados: {len(usuarios)}", normal_style))
+            admins = sum(1 for u in usuarios if u['tipo_usuario'] == 'admin')
+            elements.append(Paragraph(f"Administradores: {admins} | Usuarios: {len(usuarios) - admins}", normal_style))
+            elements.append(Spacer(1, 10))
             
-            if datos:
-                print(f"DEBUG: {sensor} - Primer registro: {datos[0]}")
-            else:
-                print(f"DEBUG: {sensor} - No se encontraron datos")
-            
-            
-            if datos:
-                # Generar gráfico
-                imagen_grafico = generar_grafico_sensor(
-                    datos, 
-                    f'{config["nombre"]} - Últimos {dias} días',
-                    f'{config["nombre"]} ({config["unidad"]})',
-                    config['color']
-                )
+            if usuarios:
+                users_data = [['Nombre', 'Correo', 'Tipo', 'Peceras', 'Registro']]
+                for u in usuarios:
+                    tipo = '👑 Admin' if u['tipo_usuario'] == 'admin' else '👤 Usuario'
+                    fecha = str(u['fecha_creacion'])[:10] if u['fecha_creacion'] else 'N/A'
+                    users_data.append([
+                        u['nombre'],
+                        u['correo'],
+                        tipo,
+                        str(u['num_peceras']),
+                        fecha
+                    ])
                 
-                if imagen_grafico:
-                    # Guardar imagen temporalmente con ruta absoluta
-                    import os
-                    temp_dir = os.path.dirname(os.path.abspath(__file__))
-                    img_path = os.path.join(temp_dir, f'temp_chart_{sensor}.png')
-                    
-                    with open(img_path, 'wb') as f:
-                        f.write(imagen_grafico)
-                    
-                    # Agregar imagen al PDF
-                    story.append(Image(img_path, width=6*inch, height=3.6*inch))
-                    story.append(Spacer(1, 10))
-                
-                # Estadísticas
-                stats = calcular_estadisticas(datos)
-                
-                stats_data = [
-                    ['Métrica', 'Valor'],
-                    ['Promedio', f"{stats['promedio']} {config['unidad']}"],
-                    ['Máximo', f"{stats['maximo']} {config['unidad']}"],
-                    ['Mínimo', f"{stats['minimo']} {config['unidad']}"],
-                    ['Total de lecturas', str(stats['total_lecturas'])]
-                ]
-                
-                if tipo_usuario == 'admin' and stats['total_lecturas'] > 1:
-                    stats_data.append(['Desviación estándar', f"{stats['desviacion']} {config['unidad']}"])
-                
-                stats_table = Table(stats_data, colWidths=[2*inch, 2*inch])
-                stats_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
-                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                table_users = Table(users_data, colWidths=[100, 130, 70, 50, 80])
+                table_users.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7c3aed')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#D1D5DB'))
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f5f3ff')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#a78bfa')),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ]))
-                story.append(stats_table)
-            else:
-                story.append(Paragraph('No hay datos disponibles para este período.', styles['Normal']))
-        except Exception as e:
-            story.append(Paragraph(f'Error al procesar datos de {config["nombre"]}: {str(e)}', styles['Normal']))
+                elements.append(table_users)
         
-        story.append(Spacer(1, 30))
+        cursor.close()
+        connection.close()
     
-    # Recomendaciones (solo para admin)
-    if tipo_usuario == 'admin':
-        story.append(Paragraph('💡 Recomendaciones y Alertas', subtitulo_style))
-        
-        recomendaciones = []
-        
-        for sensor, config in sensores_config.items():
-            tabla_sensor = f'lecturas_{sensor}'
-            try:
-                cursor = conn.execute(f"""
-                    SELECT {config['campo_valor']} as valor, {config['campo_fecha']} as timestamp
-                    FROM {tabla_sensor} 
-                    WHERE {config['campo_fecha']} >= ? 
-                    ORDER BY {config['campo_fecha']} DESC
-                    LIMIT 10
-                """, (fecha_limite.isoformat(),))
-                
-                datos = [dict(row) for row in cursor.fetchall()]
-                stats = calcular_estadisticas(datos)
-                
-                if stats and stats['total_lecturas'] > 0:
-                    promedio = stats['promedio']
-                    rango_min, rango_max = config['rango_optimo']
-                    
-                    if promedio < rango_min:
-                        recomendaciones.append(f"⚠️ {config['nombre']}: Valor bajo ({promedio} {config['unidad']}). Revisar sistema.")
-                    elif promedio > rango_max:
-                        recomendaciones.append(f"⚠️ {config['nombre']}: Valor alto ({promedio} {config['unidad']}). Ajustar parámetros.")
-                    else:
-                        recomendaciones.append(f"✅ {config['nombre']}: Funcionando correctamente.")
-            except:
-                recomendaciones.append(f"⚠️ {config['nombre']}: Error al evaluar datos.")
-        
-        if not recomendaciones:
-            recomendaciones.append("✅ Todos los sistemas funcionan dentro de parámetros normales.")
-        
-        for rec in recomendaciones:
-            story.append(Paragraph(rec, styles['Normal']))
-            story.append(Spacer(1, 10))
+    elements.append(Spacer(1, 30))
     
-    # Footer
-    story.append(Spacer(1, 30))
-    story.append(Paragraph('---', styles['Normal']))
-    story.append(Paragraph(
-        'Reporte generado automáticamente por AquaZen IoT System',
-        styles['Normal']
-    ))
+    # ═══════════════════════════════════════════════════════════════
+    # PIE DE PÁGINA
+    # ═══════════════════════════════════════════════════════════════
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.gray,
+        alignment=1
+    )
+    elements.append(Paragraph("─" * 80, footer_style))
+    elements.append(Spacer(1, 5))
+    elements.append(Paragraph("AquaZen - Sistema Inteligente de Monitoreo de Peceras", footer_style))
+    elements.append(Paragraph(f"Reporte generado automáticamente | {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", footer_style))
+    elements.append(Paragraph("© 2025 AquaZen - Todos los derechos reservados", footer_style))
     
     # Construir PDF
-    doc.build(story)
-    
-    # Limpiar archivos temporales DESPUÉS de construir el PDF
-    import glob
-    import os
-    temp_dir = os.path.dirname(os.path.abspath(__file__))
-    temp_files = glob.glob(os.path.join(temp_dir, 'temp_chart_*.png'))
-    for temp_file in temp_files:
-        try:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-        except Exception as e:
-            print(f"Error al eliminar archivo temporal {temp_file}: {e}")
-    
-    conn.close()
+    doc.build(elements)
     
     # Preparar respuesta
     buffer.seek(0)
-    filename = f'AquaZen_Reporte_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    
+    fecha_archivo = datetime.now().strftime('%Y%m%d_%H%M')
+    tipo_reporte = "admin_completo" if es_admin else "personal"
+    filename = f"reporte_aquazen_{tipo_reporte}_{fecha_archivo}.pdf"
     
     return send_file(
         buffer,
@@ -1899,6 +2403,7 @@ def generar_reporte():
         download_name=filename,
         mimetype='application/pdf'
     )
+
 
 if __name__ == '__main__':
     startup_tasks()

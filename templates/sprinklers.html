@@ -130,9 +130,90 @@
                                         <button class="btn btn-success btn-sm" onclick="window.location.href='/camara/{{ aspersor.id_aspersor}}'" title="Ver Cámara en Vivo">
                                             <i class="fas fa-video"></i>
                                         </button>
+                                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#controlMotoresModal{{ aspersor.id_aspersor }}" title="Control de Motores">
+                                            <i class="fas fa-cogs"></i>
+                                        </button>
                                         <button class="btn btn-danger btn-sm eliminar-aspersor" data-id="{{aspersor.id_aspersor}}" title="Eliminar Pecera">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal Control de Motores -->
+                        <div class="modal fade" id="controlMotoresModal{{ aspersor.id_aspersor }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
+                                    <div class="modal-header bg-cyan-600 text-white">
+                                        <h5 class="modal-title"><i class="fas fa-cogs me-2"></i>Control de Motores - {{ aspersor.nombre }}</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body bg-cyan-50">
+                                        <div class="alert alert-info mb-3">
+                                            <small><i class="fas fa-info-circle me-1"></i> Control directo de hardware (Arduino/ESP32)</small>
+                                        </div>
+
+                                        <!-- Motor Compuerta (Servo) -->
+                                        <div class="card mb-3 border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-door-open me-2"></i>Compuerta (Servo)</h6>
+                                                        <small class="text-muted">Pin 3</small>
+                                                    </div>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
+                                                               id="servoSwitch{{ aspersor.id_aspersor }}" 
+                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'servo', this.checked)">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bomba 1 -->
+                                        <div class="card mb-3 border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-water me-2"></i>Bomba de Agua 1</h6>
+                                                        <small class="text-muted">Pin 7</small>
+                                                    </div>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
+                                                               id="bomba1Switch{{ aspersor.id_aspersor }}" 
+                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'bomba1', this.checked)">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bomba 2 -->
+                                        <div class="card mb-3 border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-water me-2"></i>Bomba de Agua 2</h6>
+                                                        <small class="text-muted">Pin 6</small>
+                                                    </div>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
+                                                               id="bomba2Switch{{ aspersor.id_aspersor }}" 
+                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'bomba2', this.checked)">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <hr>
+                                        <h6 class="fw-bold text-cyan-800 mb-2">Modo de Operación</h6>
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" name="mode{{ aspersor.id_aspersor }}" id="modeManual{{ aspersor.id_aspersor }}" autocomplete="off" checked onchange="cambiarModo('{{ aspersor.id_aspersor }}', 'manual')">
+                                            <label class="btn btn-outline-cyan" for="modeManual{{ aspersor.id_aspersor }}">Manual</label>
+
+                                            <input type="radio" class="btn-check" name="mode{{ aspersor.id_aspersor }}" id="modeAuto{{ aspersor.id_aspersor }}" autocomplete="off" onchange="cambiarModo('{{ aspersor.id_aspersor }}', 'auto')">
+                                            <label class="btn btn-outline-cyan" for="modeAuto{{ aspersor.id_aspersor }}">Automático</label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -413,18 +494,83 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
-                location.reload(); // Recargar la página en caso de éxito
-            } 
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al actualizar: ' + data.error);
+            }
         })
-        .catch(error => {
-            alert('Hubo un problema con la solicitud');
-        });
+        .catch(error => console.error('Error:', error));
     });
 });
 
+// Funciones para control de motores
+function controlarMotor(idAspersor, motor, estado) {
+    console.log(`Controlando motor ${motor} de aspersor ${idAspersor}: ${estado ? 'ON' : 'OFF'}`);
+    
+    fetch('/api/control_motor', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id_aspersor: idAspersor,
+            motor: motor,
+            estado: estado ? 'on' : 'off'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Comando enviado correctamente');
+        } else {
+            alert('Error al controlar motor: ' + (data.error || 'Desconocido'));
+            // Revertir switch si hubo error
+            const switchId = motor === 'servo' ? `servoSwitch${idAspersor}` : 
+                             motor === 'bomba1' ? `bomba1Switch${idAspersor}` : 
+                             `bomba2Switch${idAspersor}`;
+            document.getElementById(switchId).checked = !estado;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de comunicación');
+    });
+}
 
-        document.addEventListener("DOMContentLoaded", () => {
+function cambiarModo(idAspersor, modo) {
+    console.log(`Cambiando modo de aspersor ${idAspersor} a ${modo}`);
+    
+    fetch('/api/cambiar_modo_motor', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id_aspersor: idAspersor,
+            modo: modo
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Modo cambiado correctamente');
+            // Deshabilitar controles manuales si está en auto
+            const disabled = modo === 'auto';
+            document.getElementById(`servoSwitch${idAspersor}`).disabled = disabled;
+            document.getElementById(`bomba1Switch${idAspersor}`).disabled = disabled;
+            document.getElementById(`bomba2Switch${idAspersor}`).disabled = disabled;
+        } else {
+            alert('Error al cambiar modo: ' + (data.error || 'Desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de comunicación');
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
     const eliminarButtons = document.querySelectorAll(".eliminar-aspersor");
 
     eliminarButtons.forEach(button => {
