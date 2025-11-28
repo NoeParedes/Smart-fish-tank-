@@ -237,16 +237,11 @@ def store_sensor_reading(humedad_value=None, raw_value=None, nivel_value=None, c
 
     try:
         cursor = connection.cursor()
-        if humedad_value is not None:
+        if humedad_value is not None or raw_value is not None:
             cursor.execute("""
-                INSERT INTO lecturas_humedad (id_aspersor, humedad)
-                VALUES (?, ?)
-            """, (aspersor_id, humedad_value))
-        if raw_value is not None:
-            cursor.execute("""
-                INSERT INTO lecturas_humedad (id_aspersor, raw)
-                VALUES (?, ?)
-            """, (aspersor_id, raw_value))
+                INSERT INTO lecturas_humedad (id_aspersor, humedad, raw)
+                VALUES (?, ?, ?)
+            """, (aspersor_id, humedad_value, raw_value))
         if nivel_value is not None:
             cursor.execute("""
                 INSERT INTO lecturas_ultrasonico (id_aspersor, nivel)
@@ -268,6 +263,14 @@ def store_sensor_reading(humedad_value=None, raw_value=None, nivel_value=None, c
 # --- MQTT Listener ---
 mqtt_client = None
 _startup_done = False
+
+
+def _pick_payload_value(data, keys):
+    """Devuelve la primera clave presente en data, permitiendo valores 0."""
+    for key in keys:
+        if key in data and data[key] is not None:
+            return data[key]
+    return None
 
 def start_mqtt_listener():
     """Se suscribe al tópico MQTT y guarda las lecturas en la BD."""
@@ -294,19 +297,14 @@ def start_mqtt_listener():
 
             if msg.topic == MQTT_TOPIC_HUMEDAD:
                 # Soportar múltiples formatos: {"humedad_suelo": X}, {"value": X}, {"humedad": X}
-                humedad = (data.get('humedad_suelo') or 
-                          data.get('value') or 
-                          data.get('humedad'))
+                humedad = _pick_payload_value(data, ('humedad_suelo', 'value', 'humedad'))
                 raw_value = data.get('raw')
                 latest_sensor_data['humedad_suelo'] = humedad
                 latest_sensor_data['raw'] = raw_value
             elif msg.topic == MQTT_TOPIC_ULTRASONICO:
                 # Soportar múltiples posibles claves del payload del sensor ultrasonico
                 # Ejemplos aceptados: {"nivel": X}, {"distancia": X}, {"distance_cm": X}, {"distance": X}
-                nivel = (data.get('nivel') or
-                         data.get('distancia') or
-                         data.get('distance_cm') or
-                         data.get('distance'))
+                nivel = _pick_payload_value(data, ('nivel', 'distancia', 'distance_cm', 'distance'))
                 # Si aún no se obtuvo, intentar detectar primer valor numérico
                 if nivel is None:
                     for v in data.values():
@@ -318,9 +316,7 @@ def start_mqtt_listener():
                 latest_sensor_data['nivel'] = nivel
             elif msg.topic == MQTT_TOPIC_CALIDAD:
                 # Soportar múltiples formatos: {"calidad": X}, {"valor": X}, {"value": X}
-                calidad = (data.get('calidad') or 
-                          data.get('valor') or 
-                          data.get('value'))
+                calidad = _pick_payload_value(data, ('calidad', 'valor', 'value', 'tds', 'tds_ppm'))
                 latest_sensor_data['calidad'] = calidad
 
             latest_sensor_data['timestamp'] = datetime.now(timezone.utc).isoformat()

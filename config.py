@@ -7,7 +7,7 @@ import os
 DATABASE = os.environ.get('DATABASE_FILE', 'icc_database.db')
 
 # MQTT
-MQTT_BROKER = os.environ.get('MQTT_BROKER', '192.168.18.215')  # Cambia aquí la IP del broker
+MQTT_BROKER = os.environ.get('MQTT_BROKER', '172.20.10.6')  # Cambia aquí la IP del broker
 MQTT_PORT = int(os.environ.get('MQTT_PORT', 1883))
 MQTT_TOPIC_HUMEDAD = os.environ.get('MQTT_TOPIC_HUMEDAD', 'pecera/humedad')
 MQTT_TOPIC_ULTRASONICO = os.environ.get('MQTT_TOPIC_ULTRASONICO', 'pecera/ultrasonico')
