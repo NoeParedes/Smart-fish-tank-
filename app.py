@@ -23,9 +23,8 @@ from config import (
     DATABASE,
     MQTT_BROKER,
     MQTT_PORT,
-    MQTT_TOPIC_HUMEDAD,
-    MQTT_TOPIC_ULTRASONICO,
-    MQTT_TOPIC_CALIDAD,
+    MQTT_TOPIC_SENDER,
+    MQTT_TOPIC_CATCHER,
     CAMERA_DEFAULT_URL
 )
 
@@ -35,6 +34,13 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # True solo si usas HTTPS
+
+# Permite forzar el modo debug via variable de entorno.
+DEBUG_MODE = os.environ.get('FLASK_DEBUG', '1') in ('1', 'true', 'True')
+app.config['DEBUG'] = DEBUG_MODE
+
+# Evita colisiones de client_id cuando existe otro servicio escuchando en el broker
+MQTT_CLIENT_ID = f"irrigation_webapp_{os.getpid()}"
 
 # Context processor global: variables de usuario + configuración cámara
 @app.context_processor
@@ -49,12 +55,33 @@ def inject_user_context():
 
 # Cache en memoria del último mensaje recibido del broker
 latest_sensor_data = {
-    "humedad_suelo": None,
-    "raw": None,
-    "nivel": None,
-    "calidad": None,
+    "ultrasonico": {
+        "distancia_cm": None,
+        "timestamp": None
+    },
+    "liquido": {
+        "nivel_pct": None,
+        "raw": None,
+        "timestamp": None
+    },
+    "tds": {
+        "ppm": None,
+        "raw": None,
+        "calidad": None,
+        "timestamp": None
+    },
+    "sistema": {
+        "estado": None,
+        "bomba6": None,
+        "bomba7": None,
+        "servo_pos": None,
+        "eventos_activos": None,
+        "timestamp": None
+    },
     "timestamp": None
 }
+
+MAX_SENSOR_RECORDS = 100
 
 # Función para conectar a la base de datos
 def get_db_connection():
@@ -242,16 +269,19 @@ def store_sensor_reading(humedad_value=None, raw_value=None, nivel_value=None, c
                 INSERT INTO lecturas_humedad (id_aspersor, humedad, raw)
                 VALUES (?, ?, ?)
             """, (aspersor_id, humedad_value, raw_value))
+            prune_sensor_table(cursor, 'lecturas_humedad')
         if nivel_value is not None:
             cursor.execute("""
                 INSERT INTO lecturas_ultrasonico (id_aspersor, nivel)
                 VALUES (?, ?)
             """, (aspersor_id, nivel_value))
+            prune_sensor_table(cursor, 'lecturas_ultrasonico')
         if calidad_value is not None:
             cursor.execute("""
                 INSERT INTO lecturas_calidad (id_aspersor, calidad)
                 VALUES (?, ?)
             """, (aspersor_id, calidad_value))
+            prune_sensor_table(cursor, 'lecturas_calidad')
         connection.commit()
     except Exception as e:
         print(f"Error guardando lectura de sensor: {e}")
@@ -260,17 +290,30 @@ def store_sensor_reading(humedad_value=None, raw_value=None, nivel_value=None, c
         connection.close()
 
 
+def prune_sensor_table(cursor, table_name):
+    """Mantiene solo las últimas MAX_SENSOR_RECORDS filas en la tabla indicada."""
+    try:
+        cursor.execute(f"""
+            DELETE FROM {table_name}
+            WHERE id_lectura NOT IN (
+                SELECT id_lectura
+                FROM {table_name}
+                ORDER BY fecha_hora DESC
+                LIMIT ?
+            )
+        """, (MAX_SENSOR_RECORDS,))
+    except Exception as e:
+        print(f"No se pudo podar {table_name}: {e}")
+
+
 # --- MQTT Listener ---
 mqtt_client = None
 _startup_done = False
 
 
-def _pick_payload_value(data, keys):
-    """Devuelve la primera clave presente en data, permitiendo valores 0."""
-    for key in keys:
-        if key in data and data[key] is not None:
-            return data[key]
-    return None
+def _now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
 
 def start_mqtt_listener():
     """Se suscribe al tópico MQTT y guarda las lecturas en la BD."""
@@ -279,64 +322,80 @@ def start_mqtt_listener():
         return mqtt_client
 
     client = mqtt.Client(
-        client_id="irrigation_webapp",
+        client_id=MQTT_CLIENT_ID,
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2
     )
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
 
     def on_connect(cl, userdata, flags, reason_code, properties=None):
         print(f"MQTT conectado (reason_code={reason_code})")
-        cl.subscribe(MQTT_TOPIC_HUMEDAD)
-        cl.subscribe(MQTT_TOPIC_ULTRASONICO)
-        cl.subscribe(MQTT_TOPIC_CALIDAD)
+        cl.subscribe(MQTT_TOPIC_SENDER)
+
+    def on_disconnect(cl, userdata, disconnect_flags, reason_code, properties=None):
+        print(
+            "MQTT desconectado "
+            f"(reason_code={reason_code}, flags={disconnect_flags})"
+        )
 
     def on_message(cl, userdata, msg):
         try:
             payload = msg.payload.decode('utf-8')
             data = json.loads(payload)
-            humedad = raw_value = nivel = calidad = None
+            sensor_type = (data.get('sensor') or '').lower()
+            now_iso = _now_iso()
+            latest_sensor_data['timestamp'] = now_iso
 
-            if msg.topic == MQTT_TOPIC_HUMEDAD:
-                # Soportar múltiples formatos: {"humedad_suelo": X}, {"value": X}, {"humedad": X}
-                humedad = _pick_payload_value(data, ('humedad_suelo', 'value', 'humedad'))
+            if sensor_type == 'ultrasonico':
+                distancia = data.get('distancia_cm')
+                latest_sensor_data['ultrasonico'] = {
+                    'distancia_cm': distancia,
+                    'timestamp': now_iso
+                }
+                store_sensor_reading(nivel_value=distancia)
+            elif sensor_type == 'liquido':
+                nivel_pct = data.get('nivel_pct')
                 raw_value = data.get('raw')
-                latest_sensor_data['humedad_suelo'] = humedad
-                latest_sensor_data['raw'] = raw_value
-            elif msg.topic == MQTT_TOPIC_ULTRASONICO:
-                # Soportar múltiples posibles claves del payload del sensor ultrasonico
-                # Ejemplos aceptados: {"nivel": X}, {"distancia": X}, {"distance_cm": X}, {"distance": X}
-                nivel = _pick_payload_value(data, ('nivel', 'distancia', 'distance_cm', 'distance'))
-                # Si aún no se obtuvo, intentar detectar primer valor numérico
-                if nivel is None:
-                    for v in data.values():
-                        if isinstance(v, (int, float)):
-                            nivel = v
-                            break
-                if nivel is None:
-                    print(f"MQTT ultrasonico: payload sin clave reconocida {data}")
-                latest_sensor_data['nivel'] = nivel
-            elif msg.topic == MQTT_TOPIC_CALIDAD:
-                # Soportar múltiples formatos: {"calidad": X}, {"valor": X}, {"value": X}
-                calidad = _pick_payload_value(data, ('calidad', 'valor', 'value', 'tds', 'tds_ppm'))
-                latest_sensor_data['calidad'] = calidad
+                latest_sensor_data['liquido'] = {
+                    'nivel_pct': nivel_pct,
+                    'raw': raw_value,
+                    'timestamp': now_iso
+                }
+                store_sensor_reading(humedad_value=nivel_pct, raw_value=raw_value)
+            elif sensor_type == 'tds':
+                ppm = data.get('ppm')
+                latest_sensor_data['tds'] = {
+                    'ppm': ppm,
+                    'raw': data.get('raw'),
+                    'calidad': data.get('calidad'),
+                    'timestamp': now_iso
+                }
+                store_sensor_reading(calidad_value=ppm)
+            elif sensor_type == 'sistema':
+                latest_sensor_data['sistema'] = {
+                    'estado': data.get('estado'),
+                    'bomba6': data.get('bomba6'),
+                    'bomba7': data.get('bomba7'),
+                    'servo_pos': data.get('servo_pos'),
+                    'eventos_activos': data.get('eventos_activos'),
+                    'timestamp': now_iso
+                }
+            else:
+                print(f"MQTT sensor desconocido: {data}")
 
-            latest_sensor_data['timestamp'] = datetime.now(timezone.utc).isoformat()
-
-            store_sensor_reading(humedad_value=humedad,
-                                 raw_value=raw_value,
-                                 nivel_value=nivel,
-                                 calidad_value=calidad)
-            print(f"MQTT mensaje recibido en {msg.topic}: {data}")
+            if sensor_type:
+                print(f"MQTT mensaje recibido ({sensor_type}) -> {data}")
         except Exception as e:
             print(f"Error procesando mensaje MQTT: {e}")
 
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
 
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_start()
         mqtt_client = client
-        print(f"Escuchando MQTT en {MQTT_BROKER}:{MQTT_PORT} tópico {MQTT_TOPIC_HUMEDAD}")
+        print(f"Escuchando MQTT en {MQTT_BROKER}:{MQTT_PORT} tópico {MQTT_TOPIC_SENDER}")
     except Exception as e:
         print(f"No se pudo conectar al broker MQTT: {e}")
 
@@ -584,7 +643,7 @@ def get_sensor_data():
             SELECT 'calidad' AS tipo_sensor, id_aspersor, calidad AS valor, fecha_hora
             FROM lecturas_calidad
             WHERE calidad IS NOT NULL
-            ORDER BY fecha_hora ASC
+            ORDER BY fecha_hora DESC
         """)
         data = cursor.fetchall()
         cursor.close()
@@ -597,25 +656,22 @@ def get_sensor_data():
 @app.route('/get_latest_sensor_data', methods=['GET'])
 def get_latest_sensor_data():
     """Devuelve el último valor recibido del broker MQTT."""
-    has_data = not (
-        latest_sensor_data['humedad_suelo'] is None and
-        latest_sensor_data['raw'] is None and
-        latest_sensor_data['nivel'] is None and
-        latest_sensor_data['calidad'] is None
+    has_data = any(
+        latest_sensor_data.get(section, {}).get(key) is not None
+        for section in ('ultrasonico', 'liquido', 'tds')
+        for key in latest_sensor_data.get(section, {})
+        if key != 'timestamp'
     )
-    # Siempre devolver 200 para simplificar consumo en frontend
-    return jsonify({
-        "humedad_suelo": latest_sensor_data['humedad_suelo'],
-        "raw": latest_sensor_data['raw'],
-        "nivel": latest_sensor_data['nivel'],
-        "calidad": latest_sensor_data['calidad'],
-        "timestamp": latest_sensor_data['timestamp'],
+
+    response = {
         "has_data": has_data,
-        # compatibilidad con el JS existente
-        "moisture1": latest_sensor_data['humedad_suelo'],
-        "moisture2": latest_sensor_data['humedad_suelo'],
-        "waterLevel": latest_sensor_data['raw'],
-    })
+        "timestamp": latest_sensor_data['timestamp'],
+        "ultrasonico": latest_sensor_data['ultrasonico'],
+        "liquido": latest_sensor_data['liquido'],
+        "tds": latest_sensor_data['tds'],
+        "sistema": latest_sensor_data['sistema']
+    }
+    return jsonify(response)
 
 
 @app.route('/sensor_data/humedad', methods=['GET'])
@@ -748,7 +804,7 @@ def get_valve_states():
             else:
                 return jsonify({"error": "No hay suficientes aspersores registrados para este usuario."}), 400
 
-        except Error as e:
+        except Exception as e:
             print(f"Error al obtener los estados de las válvulas: {e}")
             return jsonify({"error": "Error al consultar la base de datos."}), 500
     else:
@@ -1082,38 +1138,75 @@ def error_500():
 
 @app.route('/calendar/<int:id_aspersor>')
 def calendar(id_aspersor):
+    if 'id_usuario' not in session:
+        return redirect(url_for('login'))
+
     nombre_usuario = session['nombre_usuario']
     tipo_usuario = session['tipo_usuario']
-    return render_template('calendar.html', id_aspersor=id_aspersor, nombre_usuario=nombre_usuario,tipo_usuario=tipo_usuario)
+    aspersor_nombre = None
+
+    connection = get_db_connection()
+    if connection:
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT nombre FROM aspersores WHERE id_aspersor = ?", (id_aspersor,))
+            row = cursor.fetchone()
+            if row:
+                aspersor_nombre = row['nombre']
+        finally:
+            cursor.close()
+            connection.close()
+
+    return render_template(
+        'calendar.html',
+        id_aspersor=id_aspersor,
+        nombre_usuario=nombre_usuario,
+        tipo_usuario=tipo_usuario,
+        aspersor_nombre=aspersor_nombre,
+        mqtt_broker=MQTT_BROKER,
+        mqtt_topic_catcher=MQTT_TOPIC_CATCHER
+    )
 
 @app.route('/get_programaciones/<int:id_aspersor>')
 def get_programaciones(id_aspersor):
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"error": "Error al conectar con la base de datos."}), 500
+
     try:
-        connection = get_db_connection()
         cursor = connection.cursor()
         cursor.execute("""
             SELECT id_programacion, hora_inicio, duracion_minutos, fecha_creacion
             FROM programaciones_riego
             WHERE id_aspersor = ?
+            ORDER BY hora_inicio ASC
         """, (id_aspersor,))
-        programaciones = cursor.fetchall()
+        rows = cursor.fetchall()
         cursor.close()
-        connection.close()
-
-        # Formatear `hora_inicio` (DATETIME) y otros campos si es necesario
-        for programacion in programaciones:
-            if 'hora_inicio' in programacion and programacion['hora_inicio'] is not None:
-                # Convertir `hora_inicio` (DATETIME) a cadena en formato legible
-                programacion['hora_inicio'] = programacion['hora_inicio'].strftime('%Y-%m-%d %H:%M:?')
-
-            if 'fecha_creacion' in programacion and programacion['fecha_creacion'] is not None:
-                # Convertir `fecha_creacion` (TIMESTAMP) a cadena
-                programacion['fecha_creacion'] = programacion['fecha_creacion'].strftime('%Y-%m-%d %H:%M:?')
-
-        return jsonify(programaciones), 200
+        serialized = []
+        for row in rows:
+            hora_inicio = row['hora_inicio']
+            fecha_creacion = row['fecha_creacion']
+            if isinstance(hora_inicio, datetime):
+                hora_str = hora_inicio.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                hora_str = str(hora_inicio) if hora_inicio is not None else None
+            if isinstance(fecha_creacion, datetime):
+                fecha_str = fecha_creacion.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                fecha_str = str(fecha_creacion) if fecha_creacion is not None else None
+            serialized.append({
+                "id_programacion": row['id_programacion'],
+                "hora_inicio": hora_str,
+                "duracion_minutos": row['duracion_minutos'],
+                "fecha_creacion": fecha_str
+            })
+        return jsonify(serialized), 200
     except Exception as e:
         print(f"Error al obtener programaciones: {e}")
         return jsonify({"error": "Error al obtener programaciones."}), 500
+    finally:
+        connection.close()
 
 @app.route('/save_irrigation_schedule', methods=['POST'])
 def save_irrigation_schedule():
@@ -1134,7 +1227,7 @@ def save_irrigation_schedule():
         connection.close()
 
         return jsonify({"message": "Programación de riego guardada exitosamente!"}), 200
-    except Error as e:
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -1155,7 +1248,7 @@ def get_aspersor_nombre(id_aspersor):
             return jsonify({"nombre": aspersor['nombre']})
         else:
             return jsonify({"error": "Aspersor no encontrado"}), 404
-    except Error as e:
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -1169,7 +1262,7 @@ def delete_programacion(id_programacion):
         cursor.close()
         connection.close()
         return jsonify({"success": True})
-    except Error as e:
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -1314,7 +1407,12 @@ def aspersores(id_usuario):
                        nombre_usuario=session['nombre_usuario'],
                        tipo_usuario=tipo_usuario,
                        mostrar_todos=mostrar_todos,
-                       id_usuario_visto=id_usuario_visto)
+                       id_usuario_visto=id_usuario_visto,
+                       catcher_primary_modes=CATCHER_PRIMARY_MODES,
+                       catcher_safety_commands=CATCHER_SAFETY_COMMANDS,
+                       catcher_exceptional_events=sorted(CATCHER_EXCEPTIONAL_EVENTS),
+                       mqtt_broker=MQTT_BROKER,
+                       mqtt_topic_catcher=MQTT_TOPIC_CATCHER)
     except Exception as e:
         print(f"Error al obtener aspersores: {e}")
         flash('Error al obtener los aspersores.', 'error')
@@ -1344,7 +1442,7 @@ def eliminar_aspersor():
                 connection.close()
 
                 return jsonify({"message": "Aspersor eliminado correctamente"}), 200
-            except mysql.connector.Error as e:
+            except Exception as e:
                 print(f"Error al eliminar el aspersor: {e}")
                 return jsonify({"error": "Error al eliminar el aspersor"}), 500
         else:
@@ -1355,66 +1453,40 @@ def eliminar_aspersor():
 
 @app.route('/actualizar_aspersor', methods=['POST'])
 def actualizar_aspersor():
-    if 'id_usuario' in session:  # Verificar si el usuario está autenticado
-        nombre_usuario = session['nombre_usuario']
-        tipo_usuario = session['tipo_usuario']
-        id_usuario = session['id_usuario']
-
-        if request.content_type == 'application/json':
-            data = request.get_json()
-        else:
-            data = request.form
-
-        # Obtener los datos enviados por el cliente
-        id_aspersor = data.get('id_aspersor')
-        nombre = data.get('nombre')
-        ubicacion = data.get('ubicacion')
-        camera_url = data.get('camera_url', '').strip()  # Opcional
-
-        # Validar que los datos necesarios estén presentes
-        if not id_aspersor or not nombre or not ubicacion:
-            flash('Datos incompletos. Asegúrate de que todos los campos están llenos.', 'error')
-            return redirect(url_for('aspersores'))
-
-        # Conexión a la base de datos para actualizar el aspersor
-        connection = get_db_connection()
-        if connection:
-            try:
-                cursor = connection.cursor()
-                cursor.execute("""
-                    UPDATE aspersores 
-                    SET nombre = ?, ubicacion = ?, camera_url = ?
-                    WHERE id_aspersor = ? 
-                """, (nombre, ubicacion, camera_url if camera_url else None, id_aspersor))
-                connection.commit()
-                cursor.close()
-            except Error as e:
-                print(f"Error al actualizar el aspersor: {e}")
-                return jsonify({"message": "Error al actualizar el aspersor. Por favor, inténtalo de nuevo.", "status": "error"}), 500
-            finally:
-                connection.close()
-
-        # Después de actualizar, recuperar la lista de aspersores actualizada
-        connection = get_db_connection()
-        aspersores = []
-        if connection:
-            cursor = connection.cursor()
-            cursor.execute("""
-                SELECT id_aspersor, nombre, ubicacion, estado
-                FROM aspersores
-                WHERE id_usuario = ?
-            """, (id_usuario,))
-            aspersores = cursor.fetchall()
-            cursor.close()
-            connection.close()
-
-        # Redirigir a la página de aspersores con los datos actualizados
-        return jsonify({"message": "Aspersor actualizado exitosamente.", "status": "success"}), 200
-
-    else:
-        # Si el usuario no está autenticado, redirigir al inicio de sesión
+    if 'id_usuario' not in session:
         flash('Por favor, inicia sesión para continuar.', 'error')
         return redirect(url_for('login'))
+
+    payload = request.get_json(silent=True) or request.form
+    id_aspersor = payload.get('id_aspersor')
+    nombre = payload.get('nombre')
+    ubicacion = payload.get('ubicacion')
+    camera_url = payload.get('camera_url')
+
+    if not id_aspersor:
+        return jsonify({"success": False, "error": "Falta id_aspersor"}), 400
+
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"success": False, "error": "Sin conexión a base de datos"}), 500
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            UPDATE aspersores
+            SET nombre = ?, ubicacion = ?, camera_url = ?
+            WHERE id_aspersor = ?
+            """,
+            (nombre, ubicacion, camera_url, id_aspersor)
+        )
+        connection.commit()
+        cursor.close()
+        connection.close()
+        return jsonify({"success": True, "message": "Aspersor actualizado exitosamente."})
+    except Exception as e:
+        print(f"Error al actualizar aspersor: {e}")
+        return jsonify({"success": False, "error": "No se pudo actualizar la pecera"}), 500
 
 @app.route('/actualizar_estado_aspersor', methods=['POST'])
 def actualizar_estado_aspersor():
@@ -1461,7 +1533,7 @@ def eliminar_usuario():
                 connection.close()
 
                 return jsonify({"message": "Usuario eliminado correctamente"}), 200
-            except mysql.connector.Error as e:
+            except Exception as e:
                 print(f"Error al eliminar el usuario: {e}")
                 return jsonify({"error": "Error al eliminar el usuario"}), 500
         else:
@@ -1472,9 +1544,35 @@ def eliminar_usuario():
 
 # API para control de motores (sin MQTT, usando Serial o HTTP directo)
 # Configuración del puerto Serial (Ajustar COM según corresponda)
-SERIAL_PORT = 'COM8'
+SERIAL_PORT = 'COM6'
 BAUD_RATE = 9600
 arduino_serial = None
+
+CATCHER_COMMAND_TYPES = {
+    'AUTOMATICO',
+    'VACIAR',
+    'RELLENAR',
+    'REINICIAR',
+    'CANCELAR',
+    'EXCEPCIONAL'
+}
+
+CATCHER_EXCEPTIONAL_EVENTS = {
+    'BOMBA6',
+    'BOMBA7',
+    'SERVO'
+}
+
+CATCHER_PRIMARY_MODES = [
+    'AUTOMATICO',
+    'VACIAR',
+    'RELLENAR'
+]
+
+CATCHER_SAFETY_COMMANDS = [
+    'REINICIAR',
+    'CANCELAR'
+]
 
 def init_serial_connection():
     global arduino_serial
@@ -1517,43 +1615,108 @@ def send_serial_command(command):
         print(f"Error inesperado en Serial: {e}")
         return False
 
+def get_active_mqtt_client():
+    """Garantiza que el cliente MQTT esté conectado antes de publicar."""
+    client = start_mqtt_listener()
+    if client is None:
+        print("MQTT: cliente no inicializado")
+        return None
+
+    try:
+        is_connected = client.is_connected()
+    except AttributeError:
+        is_connected = True
+
+    if not is_connected:
+        try:
+            client.reconnect()
+            print("MQTT reconectado para comando de actuadores")
+        except Exception as e:
+            print(f"MQTT no pudo reconectar: {e}")
+            return None
+
+    return client
+
+def publish_catcher_command(payload):
+    """Publica comandos hacia AquaZen/catcher."""
+    client = get_active_mqtt_client()
+    if client is None:
+        return False
+
+    try:
+        info = client.publish(MQTT_TOPIC_CATCHER, json.dumps(payload), qos=1)
+        if hasattr(info, 'wait_for_publish'):
+            info.wait_for_publish()
+
+        rc = info[0] if isinstance(info, tuple) else getattr(info, 'rc', mqtt.MQTT_ERR_SUCCESS)
+        success = (rc == mqtt.MQTT_ERR_SUCCESS)
+        if success:
+            print(f"MQTT comando enviado a {MQTT_TOPIC_CATCHER}: {payload}")
+        else:
+            print(f"MQTT fallo al publicar en {MQTT_TOPIC_CATCHER}: rc={rc}")
+        return success
+    except Exception as e:
+        print(f"MQTT error publicando en {MQTT_TOPIC_CATCHER}: {e}")
+        return False
+
+
+def build_catcher_payload(data):
+    if not isinstance(data, dict):
+        raise ValueError("Formato de comando inválido")
+
+    tipo = str(data.get('tipo', '')).strip().upper()
+    if tipo not in CATCHER_COMMAND_TYPES:
+        raise ValueError("Tipo de comando no soportado")
+
+    payload = {"tipo": tipo}
+
+    if tipo == 'EXCEPCIONAL':
+        evento = str(data.get('evento', '')).strip().upper()
+        if evento not in CATCHER_EXCEPTIONAL_EVENTS:
+            raise ValueError("Evento excepcional no soportado")
+        try:
+            duracion = int(data.get('duracion', 0))
+        except (TypeError, ValueError):
+            raise ValueError("Duración inválida")
+        if duracion <= 0:
+            raise ValueError("La duración debe ser mayor a 0")
+        hora = data.get('hora', 0)
+        try:
+            hora = int(hora)
+        except (TypeError, ValueError):
+            hora = 0
+        payload.update({
+            "evento": evento,
+            "duracion": duracion,
+            "hora": hora
+        })
+    else:
+        # Permite adjuntar información contextual opcional
+        objetivo = data.get('objetivo')
+        if objetivo is not None:
+            payload['objetivo'] = objetivo
+
+    return payload
+
 @app.route('/api/control_motor', methods=['POST'])
 def control_motor():
+    return jsonify({
+        "success": False,
+        "error": "El control directo fue reemplazado por /api/catcher_command"
+    }), 410
+
+
+@app.route('/api/catcher_command', methods=['POST'])
+def catcher_command():
     try:
-        data = request.get_json()
-        id_aspersor = data.get('id_aspersor')
-        motor = data.get('motor') # 'servo', 'bomba1', 'bomba2'
-        estado = data.get('estado') # 'on', 'off'
-        
-        print(f"Comando recibido: Motor {motor} -> {estado} (Aspersor {id_aspersor})")
-        
-        # Mapeo de comandos para el Arduino
-        # Protocolo: M1:1 (Servo ON), M2:0 (Bomba1 OFF), etc.
-        motor_map = {
-            'servo': 'M1',
-            'bomba1': 'M2',
-            'bomba2': 'M3'
-        }
-        
-        state_val = '1' if estado == 'on' else '0'
-        
-        if motor in motor_map:
-            cmd_code = motor_map[motor]
-            command = f"{cmd_code}:{state_val}"
-            
-            # Enviar comando por Serial
-            success = send_serial_command(command)
-            
-            if success:
-                return jsonify({"success": True, "message": f"Motor {motor} {estado} enviado por Serial"})
-            else:
-                return jsonify({"success": False, "error": "No se pudo conectar con el Arduino (Serial Error)"}), 500
-        else:
-             return jsonify({"success": False, "error": "Motor desconocido"}), 400
-        
-    except Exception as e:
-        print(f"Error control motor: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        payload = build_catcher_payload(request.get_json() or {})
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    success = publish_catcher_command(payload)
+    if success:
+        return jsonify({"success": True, "message": f"Comando {payload['tipo']} enviado"})
+    return jsonify({"success": False, "error": "No se pudo enviar comando MQTT"}), 500
 
 @app.route('/api/cambiar_modo_motor', methods=['POST'])
 def cambiar_modo_motor():
@@ -2402,5 +2565,10 @@ def generar_reporte():
 
 
 if __name__ == '__main__':
-    startup_tasks()
-    app.run(debug=True)
+    app.debug = DEBUG_MODE  # Asegura que startup_tasks detecte correctamente el modo actual
+
+    should_boot = (not DEBUG_MODE) or (os.environ.get('WERKZEUG_RUN_MAIN') == 'true')
+    if should_boot:
+        startup_tasks()
+
+    app.run(debug=DEBUG_MODE)

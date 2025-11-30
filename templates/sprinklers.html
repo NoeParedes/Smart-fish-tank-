@@ -5,7 +5,6 @@
 {% block content %}
 
     <style>
-          /* Ajustar el switch y su posición con colores acuáticos */
     .custom-switch {
         width: 60px;
         height: 25px;
@@ -51,7 +50,121 @@
         box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);
     }
 
+    .command-card {
+        border: none;
+        border-radius: 18px;
+        background: white;
+        box-shadow: 0 15px 45px rgba(6, 182, 212, 0.15);
+        height: 100%;
+    }
+
+    .command-pill {
+        border: none;
+        border-radius: 999px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        background: rgba(6, 182, 212, 0.12);
+        color: #0f172a;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .command-pill:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(6, 182, 212, 0.25);
+    }
+
+    .command-pill-danger {
+        background: rgba(248, 113, 113, 0.18);
+        color: #b91c1c;
+    }
+
+    .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-chip.idle {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    .status-chip.sending {
+        background: #fef9c3;
+        color: #854d0e;
+    }
+
+    .status-chip.success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-chip.error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .exceptional-form label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #0f172a;
+    }
+
+    .exceptional-form input,
+    .exceptional-form select {
+        border-radius: 12px;
+        border: 1px solid #bae6fd;
+    }
+
+    .sensor-card {
+        background: linear-gradient(160deg, #0ea5e9 0%, #06b6d4 60%, #22d3ee 100%);
+        color: white;
+        border-radius: 18px;
+        box-shadow: 0 12px 35px rgba(14, 165, 233, 0.25);
+    }
+
+    .sensor-card h5 {
+        font-weight: 600;
+    }
+
+    .sensor-metric {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .chart-wrapper {
+        background: rgba(255,255,255,0.15);
+        border-radius: 18px;
+        padding: 1rem;
+    }
+
+    .history-timeline {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
+    .history-timeline li {
+        font-size: 0.85rem;
+        margin-bottom: 0.35rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .history-timeline span {
+        color: #0f172a;
+        font-weight: 600;
+    }
     </style>
+
+    <div id="commandToastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
                 <div class="container mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -68,8 +181,8 @@
                             <button class="btn btn-gradient me-2" data-bs-toggle="modal" data-bs-target="#registrarAspersorModal" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; border: none;">
                                 <i class="fas fa-plus me-1"></i>Nueva Pecera
                             </button>
-                            <button class="btn btn-outline-cyan" id="modoAutomaticoManual" style="border-color: #06b6d4; color: #06b6d4;">
-                                <i class="fas fa-cog me-1"></i>Automático
+                            <button class="btn btn-outline-cyan" id="openCommandCenter" data-bs-toggle="modal" data-bs-target="#commandCenterModal" style="border-color: #06b6d4; color: #06b6d4;">
+                                <i class="fas fa-sliders-h me-1"></i>Centro de Control
                             </button>
                         </div>
                     </div>
@@ -124,14 +237,14 @@
                                         <button class="btn btn-warning btn-sm editar-aspersor" data-id="{{aspersor.id_aspersor}}" data-nombre="{{aspersor.nombre}}" data-ubicacion="{{aspersor.ubicacion}}" data-camera-url="{{aspersor.camera_url or ''}}" data-bs-toggle="modal" data-bs-target="#editarAspersorModal" title="Editar Pecera">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-info btn-sm" onclick="window.location.href='/calendar/{{ aspersor.id_aspersor}}'" title="Programar Alimentación">
-                                            <i class="fas fa-calendar-alt"></i>
+                                        <button class="btn btn-info btn-sm" onclick="window.location.href='/calendar/{{ aspersor.id_aspersor}}'" title="Planificador de Alimentación">
+                                            <i class="fas fa-bowl-food"></i>
                                         </button>
                                         <button class="btn btn-success btn-sm" onclick="window.location.href='/camara/{{ aspersor.id_aspersor}}'" title="Ver Cámara en Vivo">
                                             <i class="fas fa-video"></i>
                                         </button>
-                                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#controlMotoresModal{{ aspersor.id_aspersor }}" title="Control de Motores">
-                                            <i class="fas fa-cogs"></i>
+                                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#commandCenterModal" title="Centro de Control">
+                                            <i class="fas fa-sliders-h"></i>
                                         </button>
                                         <button class="btn btn-danger btn-sm eliminar-aspersor" data-id="{{aspersor.id_aspersor}}" title="Eliminar Pecera">
                                             <i class="fas fa-trash-alt"></i>
@@ -141,83 +254,6 @@
                             </div>
                         </div>
 
-                        <!-- Modal Control de Motores -->
-                        <div class="modal fade" id="controlMotoresModal{{ aspersor.id_aspersor }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
-                                    <div class="modal-header bg-cyan-600 text-white">
-                                        <h5 class="modal-title"><i class="fas fa-cogs me-2"></i>Control de Motores - {{ aspersor.nombre }}</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body bg-cyan-50">
-                                        <div class="alert alert-info mb-3">
-                                            <small><i class="fas fa-info-circle me-1"></i> Control directo de hardware (Arduino/ESP32)</small>
-                                        </div>
-
-                                        <!-- Motor Compuerta (Servo) -->
-                                        <div class="card mb-3 border-0 shadow-sm">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-door-open me-2"></i>Compuerta (Servo)</h6>
-                                                        <small class="text-muted">Pin 3</small>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
-                                                               id="servoSwitch{{ aspersor.id_aspersor }}" 
-                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'servo', this.checked)">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Bomba 1 -->
-                                        <div class="card mb-3 border-0 shadow-sm">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-water me-2"></i>Bomba de Agua 1</h6>
-                                                        <small class="text-muted">Pin 7</small>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
-                                                               id="bomba1Switch{{ aspersor.id_aspersor }}" 
-                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'bomba1', this.checked)">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Bomba 2 -->
-                                        <div class="card mb-3 border-0 shadow-sm">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <h6 class="fw-bold text-cyan-800 mb-1"><i class="fas fa-water me-2"></i>Bomba de Agua 2</h6>
-                                                        <small class="text-muted">Pin 6</small>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input motor-control" type="checkbox" role="switch" 
-                                                               id="bomba2Switch{{ aspersor.id_aspersor }}" 
-                                                               onchange="controlarMotor('{{ aspersor.id_aspersor }}', 'bomba2', this.checked)">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <hr>
-                                        <h6 class="fw-bold text-cyan-800 mb-2">Modo de Operación</h6>
-                                        <div class="btn-group w-100" role="group">
-                                            <input type="radio" class="btn-check" name="mode{{ aspersor.id_aspersor }}" id="modeManual{{ aspersor.id_aspersor }}" autocomplete="off" checked onchange="cambiarModo('{{ aspersor.id_aspersor }}', 'manual')">
-                                            <label class="btn btn-outline-cyan" for="modeManual{{ aspersor.id_aspersor }}">Manual</label>
-
-                                            <input type="radio" class="btn-check" name="mode{{ aspersor.id_aspersor }}" id="modeAuto{{ aspersor.id_aspersor }}" autocomplete="off" onchange="cambiarModo('{{ aspersor.id_aspersor }}', 'auto')">
-                                            <label class="btn btn-outline-cyan" for="modeAuto{{ aspersor.id_aspersor }}">Automático</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -405,235 +441,591 @@
                 </div>
             </main>
             
+            {% set command_labels = {
+                'AUTOMATICO': 'Automático',
+                'VACIAR': 'Vaciar',
+                'RELLENAR': 'Rellenar',
+                'REINICIAR': 'Reiniciar',
+                'CANCELAR': 'Cancelar',
+                'EXCEPCIONAL': 'Excepcional'
+            } %}
+
+            <div class="modal fade" id="commandCenterModal" tabindex="-1" aria-labelledby="commandCenterModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+                        <div class="modal-header" style="background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%); color: white;">
+                            <h5 class="modal-title" id="commandCenterModalLabel">
+                                <i class="fas fa-sliders-h me-2"></i>Centro de Control AquaZen
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" id="aquazenCommandCenter">
+                            <div class="mb-3 text-muted">
+                                Broker {{ mqtt_broker }} · Tópico {{ mqtt_topic_catcher }}
+                            </div>
+                            <div class="row g-4">
+                                <div class="col-lg-7">
+                                    <div class="card command-card">
+                                        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h5 class="mb-0 text-cyan-800 fw-bold">Acciones principales</h5>
+                                                <small class="text-muted">Selecciona un modo o envía una prueba manual</small>
+                                            </div>
+                                            <span id="commandStatusBadge" class="status-chip idle">
+                                                <i class="fas fa-circle"></i>Sin comandos
+                                            </span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <i class="fas fa-recycle text-cyan-600 me-2"></i>
+                                                    <h6 class="mb-0 text-cyan-800">Modos Principales</h6>
+                                                </div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    {% for mode in catcher_primary_modes %}
+                                                    <button type="button" class="command-pill" data-command="{{ mode }}">
+                                                        {{ command_labels[mode] }}
+                                                    </button>
+                                                    {% endfor %}
+                                                </div>
+                                                <div class="mt-3">
+                                                    <label for="targetLevelInput" class="form-label text-uppercase small fw-bold text-cyan-900">Nivel objetivo (cm) para Rellenar</label>
+                                                    <input type="number" min="1" step="1" class="form-control" id="targetLevelInput" placeholder="Ej: 35">
+                                                    <small class="text-muted">Este valor solo se enviará cuando presiones "Rellenar".</small>
+                                                </div>
+                                            </div>
+
+                                            <hr>
+
+                                            <div class="mb-3">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <i class="fas fa-shield-halved text-danger me-2"></i>
+                                                    <h6 class="mb-0 text-cyan-800">Parada y Emergencia</h6>
+                                                </div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    {% for mode in catcher_safety_commands %}
+                                                    <button type="button" class="command-pill command-pill-danger" data-command="{{ mode }}">
+                                                        {{ command_labels[mode] }}
+                                                    </button>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-4">
+                                                <div class="d-flex align-items-center mb-3">
+                                                    <i class="fas fa-flask text-cyan-600 me-2"></i>
+                                                    <h6 class="mb-0 text-cyan-800">Modo Excepcional (Pruebas de Hardware)</h6>
+                                                </div>
+                                                <form id="exceptionalCommandForm" class="exceptional-form">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Componente</label>
+                                                            <select class="form-select" id="exceptionalEvento" required>
+                                                                {% for event in catcher_exceptional_events %}
+                                                                <option value="{{ event }}">{{ event }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Duración (ms)</label>
+                                                            <input type="number" class="form-control" id="exceptionalDuracion" min="500" step="100" value="3000" required>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Hora (opcional)</label>
+                                                            <input type="number" class="form-control" id="exceptionalHora" min="0" value="0">
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                                        <small class="text-muted">Ideal para validar bombas y el servo de alimentación.</small>
+                                                        <button type="submit" class="btn btn-gradient" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white;">
+                                                            <i class="fas fa-paper-plane me-1"></i>Enviar prueba
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+
+                                            <hr>
+                                            <div>
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <i class="fas fa-clock text-cyan-600 me-2"></i>
+                                                    <h6 class="mb-0 text-cyan-800">Bitácora rápida</h6>
+                                                </div>
+                                                <ul id="commandHistory" class="history-timeline"></ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-5">
+                                    <div class="card sensor-card h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <div>
+                                                    <h5 class="mb-1">Telemetría en vivo</h5>
+                                                    <small>Última actualización: <span id="sensorUpdatedAt">--</span></small>
+                                                </div>
+                                                <span id="sistemaEstadoBadge" class="status-chip idle">
+                                                    <i class="fas fa-circle"></i>Sin datos
+                                                </span>
+                                            </div>
+
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-4">
+                                                    <div class="text-center">
+                                                        <p class="mb-1 text-uppercase small">Nivel (cm)</p>
+                                                        <div id="nivelActual" class="sensor-metric">--</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="text-center">
+                                                        <p class="mb-1 text-uppercase small">TDS (ppm)</p>
+                                                        <div id="tdsActual" class="sensor-metric">--</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="text-center">
+                                                        <p class="mb-1 text-uppercase small">Nivel (%)</p>
+                                                        <div id="liquidoActual" class="sensor-metric">--</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between">
+                                                    <div>
+                                                        <small class="text-uppercase">Bomba llenado</small>
+                                                        <div id="bomba6Estado">--</div>
+                                                    </div>
+                                                    <div>
+                                                        <small class="text-uppercase">Bomba vaciado</small>
+                                                        <div id="bomba7Estado">--</div>
+                                                    </div>
+                                                    <div>
+                                                        <small class="text-uppercase">Servo</small>
+                                                        <div id="servoEstado">--</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="chart-wrapper">
+                                                <canvas id="sensorTrendChart" height="160"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
                 
         <script>
-            document.addEventListener("DOMContentLoaded", () => {
-            const switches = document.querySelectorAll(".estado-switch");
+const COMMAND_ENDPOINT = '/api/catcher_command';
+const COMMAND_LABELS = {
+    AUTOMATICO: 'Modo Automático',
+    VACIAR: 'Vaciar pecera',
+    RELLENAR: 'Rellenar pecera',
+    REINICIAR: 'Reiniciar sistema',
+    CANCELAR: 'Cancelar eventos',
+    EXCEPCIONAL: 'Modo Excepcional'
+};
+const EXCEPTIONAL_LABELS = {
+    BOMBA6: 'Bomba llenado',
+    BOMBA7: 'Bomba vaciado',
+    SERVO: 'Servo alimento'
+};
+const STATUS_CLASS_MAP = {
+    idle: 'status-chip idle',
+    sending: 'status-chip sending',
+    success: 'status-chip success',
+    error: 'status-chip error'
+};
+let sensorTrendChart = null;
+let commandHistory = [];
 
-            switches.forEach((sw) => {
-                sw.addEventListener("change", (event) => {
-                    // Obtener el ID del aspersor desde el atributo data-id
-                    const aspersorId = event.target.dataset.id;
-            
-                    // Obtener el nuevo estado basado en el interruptor
-                    const nuevoEstado = event.target.checked ? "activo" : "inactivo";
-
-                    // Hacer la petición AJAX al servidor
-                    fetch(`/actualizar_estado_aspersor`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            id_aspersor: aspersorId,       // Pasar el ID del aspersor
-                            estado: nuevoEstado   // Pasar el nuevo estado
-                        })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            // Revertir el cambio del switch en caso de error
-                            event.target.checked = !event.target.checked;
-                        }
-                    })
-                    .catch(() => {
-                        event.target.checked = !event.target.checked;
-                    });
-                });
-            });
-        });
-
-        document.addEventListener("DOMContentLoaded", () => {
-        const editarButtons = document.querySelectorAll(".editar-aspersor");
-
-        editarButtons.forEach((button) => {
-        button.addEventListener("click", (event) => {
-            const id = button.dataset.id;
-            const nombre = button.dataset.nombre;
-            const ubicacion = button.dataset.ubicacion;
-            const cameraUrl = button.dataset.cameraUrl || '';
-
-            document.getElementById("editarIdAspersor").value = id;
-            document.getElementById("editarNombre").value = nombre;
-            document.getElementById("editarUbicacion").value = ubicacion;
-            document.getElementById("editarCameraUrl").value = cameraUrl;
-                });
-            });
-        });
-        document.addEventListener("DOMContentLoaded", () => {
-    const editarButtons = document.querySelectorAll(".editar-aspersor");
-
-    editarButtons.forEach((button) => {
-        button.addEventListener("click", (event) => {
-            const id = button.dataset.id;
-            const nombre = button.dataset.nombre;
-            const ubicacion = button.dataset.ubicacion;
-            const cameraUrl = button.dataset.cameraUrl || '';
-
-            document.getElementById("editarIdAspersor").value = id;
-            document.getElementById("editarNombre").value = nombre;
-            document.getElementById("editarUbicacion").value = ubicacion;
-            document.getElementById("editarCameraUrl").value = cameraUrl;
-        });
-    });
+document.addEventListener('DOMContentLoaded', () => {
+    initEstadoSwitches();
+    initEditarAspersor();
+    initEliminarAspersor();
+    initCommandCenter();
+    refreshRealtimePanel();
+    loadSensorTrend();
+    setInterval(refreshRealtimePanel, 5000);
+    setInterval(loadSensorTrend, 15000);
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+function initEstadoSwitches() {
+    document.querySelectorAll('.estado-switch').forEach((sw) => {
+        sw.addEventListener('change', (event) => {
+            const aspersorId = event.target.dataset.id;
+            const nuevoEstado = event.target.checked ? 'activo' : 'inactivo';
+
+            fetch('/actualizar_estado_aspersor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_aspersor: aspersorId, estado: nuevoEstado })
+            }).then((response) => {
+                if (!response.ok) {
+                    event.target.checked = !event.target.checked;
+                }
+            }).catch(() => {
+                event.target.checked = !event.target.checked;
+            });
+        });
+    });
+}
+
+function initEditarAspersor() {
+    document.querySelectorAll('.editar-aspersor').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.getElementById('editarIdAspersor').value = button.dataset.id;
+            document.getElementById('editarNombre').value = button.dataset.nombre;
+            document.getElementById('editarUbicacion').value = button.dataset.ubicacion;
+            document.getElementById('editarCameraUrl').value = button.dataset.cameraUrl || '';
+        });
+    });
+
     const formEditar = document.querySelector('form[action="/actualizar_aspersor"]');
-    formEditar.addEventListener('submit', function (e) {
-        e.preventDefault();
+    if (formEditar) {
+        formEditar.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(formEditar);
+            const payload = Object.fromEntries(formData.entries());
 
-        const formData = new FormData(formEditar);
-        const formObject = Object.fromEntries(formData.entries());
-
-        fetch('/actualizar_aspersor', {
-            method: 'POST',
-            body: JSON.stringify(formObject),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error al actualizar: ' + data.error);
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    });
-});
-
-// Funciones para control de motores
-function controlarMotor(idAspersor, motor, estado) {
-    console.log(`Controlando motor ${motor} de aspersor ${idAspersor}: ${estado ? 'ON' : 'OFF'}`);
-    
-    fetch('/api/control_motor', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            id_aspersor: idAspersor,
-            motor: motor,
-            estado: estado ? 'on' : 'off'
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Comando enviado correctamente');
-        } else {
-            alert('Error al controlar motor: ' + (data.error || 'Desconocido'));
-            // Revertir switch si hubo error
-            const switchId = motor === 'servo' ? `servoSwitch${idAspersor}` : 
-                             motor === 'bomba1' ? `bomba1Switch${idAspersor}` : 
-                             `bomba2Switch${idAspersor}`;
-            document.getElementById(switchId).checked = !estado;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error de comunicación');
-    });
+            fetch('/actualizar_aspersor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Error al actualizar.');
+                }
+            }).catch((error) => console.error('Error:', error));
+        });
+    }
 }
 
-function cambiarModo(idAspersor, modo) {
-    console.log(`Cambiando modo de aspersor ${idAspersor} a ${modo}`);
-    
-    fetch('/api/cambiar_modo_motor', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            id_aspersor: idAspersor,
-            modo: modo
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Modo cambiado correctamente');
-            // Deshabilitar controles manuales si está en auto
-            const disabled = modo === 'auto';
-            document.getElementById(`servoSwitch${idAspersor}`).disabled = disabled;
-            document.getElementById(`bomba1Switch${idAspersor}`).disabled = disabled;
-            document.getElementById(`bomba2Switch${idAspersor}`).disabled = disabled;
-        } else {
-            alert('Error al cambiar modo: ' + (data.error || 'Desconocido'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error de comunicación');
-    });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    const eliminarButtons = document.querySelectorAll(".eliminar-aspersor");
-
-    eliminarButtons.forEach(button => {
-        button.addEventListener("click", (e) => {
-            const id = e.target.closest("button").dataset.id;
-
-            if (confirm("¿Estás seguro de que deseas eliminar este aspersor?")) {
-                // Petición AJAX para eliminar el aspersor
-                fetch(`/eliminar_aspersor`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_aspersor: id })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.message) {
-                        location.reload(); 
-                    } else {
-                        alert(data.error || "Error al eliminar el aspersor.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Error en la solicitud:", err);
-                    alert("Error al eliminar el aspersor.");
-                });
+function initEliminarAspersor() {
+    document.querySelectorAll('.eliminar-aspersor').forEach((button) => {
+        button.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (!confirm('¿Estás seguro de eliminar esta pecera?')) {
+                return;
             }
+            fetch('/eliminar_aspersor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_aspersor: id })
+            }).then((res) => res.json())
+            .then((data) => {
+                if (data.message) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Error al eliminar.');
+                }
+            }).catch((err) => {
+                console.error('Error en la solicitud:', err);
+                alert('Error al eliminar el aspersor.');
+            });
         });
     });
-});
+}
 
+function initCommandCenter() {
+    const buttons = document.querySelectorAll('[data-command]');
+    const exceptionalForm = document.getElementById('exceptionalCommandForm');
 
-const modoButton = document.getElementById("modoAutomaticoManual");
-let modoAutomatico = false;
+    buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const tipo = btn.dataset.command;
+            const payload = buildCommandPayload(tipo);
+            sendCatcherCommand(payload);
+        });
+    });
 
-// Función para habilitar o deshabilitar los interruptores
-function toggleSwitches(disabled) {
-    const switches = document.querySelectorAll(".estado-switch");
-    switches.forEach((sw) => {
-        sw.disabled = disabled; // Deshabilitar o habilitar el switch
+    if (exceptionalForm) {
+        exceptionalForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const evento = document.getElementById('exceptionalEvento').value;
+            const duracion = parseInt(document.getElementById('exceptionalDuracion').value, 10);
+            const hora = parseInt(document.getElementById('exceptionalHora').value || '0', 10);
+
+            const payload = {
+                tipo: 'EXCEPCIONAL',
+                evento,
+                duracion: Number.isFinite(duracion) ? duracion : 0,
+                hora: Number.isFinite(hora) ? hora : 0
+            };
+            sendCatcherCommand(payload);
+        });
+    }
+}
+
+function buildCommandPayload(tipo) {
+    const payload = { tipo };
+    if (tipo === 'RELLENAR') {
+        const targetInput = document.getElementById('targetLevelInput');
+        if (targetInput) {
+            const objetivo = parseInt(targetInput.value, 10);
+            if (!Number.isNaN(objetivo) && objetivo > 0) {
+                payload.objetivo = objetivo;
+            }
+        }
+    }
+    return payload;
+}
+
+function sendCatcherCommand(payload) {
+    if (!payload || !payload.tipo) {
+        return;
+    }
+
+    const friendly = COMMAND_LABELS[payload.tipo] || payload.tipo;
+    updateCommandStatus('sending', `Enviando ${friendly}...`);
+    fetch(COMMAND_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then((response) => response.json())
+    .then((data) => {
+        if (data.success) {
+            const message = data.message || 'Comando enviado correctamente';
+            updateCommandStatus('success', message);
+            appendCommandHistory(payload, true);
+            showCommandToast(message, 'success');
+        } else {
+            const errorMsg = data.error || 'Error al enviar comando';
+            updateCommandStatus('error', errorMsg);
+            appendCommandHistory(payload, false);
+            showCommandToast(errorMsg, 'danger');
+        }
+    }).catch((error) => {
+        console.error('Error enviando comando:', error);
+        updateCommandStatus('error', 'Sin conexión con MQTT');
+        appendCommandHistory(payload, false);
+        showCommandToast('No se pudo enviar el comando', 'danger');
     });
 }
 
-modoButton.addEventListener("click", () => {
-    modoAutomatico = !modoAutomatico;
-    modoButton.textContent = modoAutomatico ? "Automático" : "Manual";
-    
-    // Habilitar o deshabilitar los interruptores según el modo
-    toggleSwitches(modoAutomatico);
+function updateCommandStatus(state, message) {
+    const badge = document.getElementById('commandStatusBadge');
+    if (!badge) {
+        return;
+    }
+    badge.className = STATUS_CLASS_MAP[state] || STATUS_CLASS_MAP.idle;
+    badge.innerHTML = `<i class="fas fa-circle"></i>&nbsp;${message}`;
+}
 
-    // Aquí puedes agregar lógica para manejar el cambio de modo en el backend si es necesario
-    fetch(`/cambiar_modo`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ modo: modoAutomatico ? "automatico" : "manual" })
+function appendCommandHistory(payload, success) {
+    const timestamp = new Date();
+    const readable = COMMAND_LABELS[payload.tipo] || payload.tipo;
+    let detail = readable;
+
+    if (payload.tipo === 'EXCEPCIONAL') {
+        const eventLabel = EXCEPTIONAL_LABELS[payload.evento] || payload.evento;
+        detail = `${eventLabel} · ${payload.duracion} ms`;
+    } else if (payload.tipo === 'RELLENAR' && payload.objetivo) {
+        detail = `${readable} · Objetivo ${payload.objetivo} cm`;
+    }
+
+    commandHistory.unshift({ detail, success, timestamp });
+    commandHistory = commandHistory.slice(0, 6);
+
+    const historyList = document.getElementById('commandHistory');
+    if (!historyList) {
+        return;
+    }
+    historyList.innerHTML = '';
+    commandHistory.forEach((entry) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${entry.detail}</span><small>${formatTimestamp(entry.timestamp)} · ${entry.success ? 'OK' : 'Fallo'}</small>`;
+        historyList.appendChild(li);
     });
-});
+}
 
-// Al cargar la página, deshabilitar los interruptores si el modo es automático
-document.addEventListener("DOMContentLoaded", () => {
-    toggleSwitches(modoAutomatico); // Llama a la función para establecer el estado inicial
-});
-        </script>
+function showCommandToast(message, type = 'info') {
+    const container = document.getElementById('commandToastContainer');
+    if (!container) {
+        return;
+    }
+    const wrapper = document.createElement('div');
+    wrapper.className = `alert alert-${type} shadow`;
+    wrapper.role = 'alert';
+    wrapper.textContent = message;
+    container.appendChild(wrapper);
+    setTimeout(() => {
+        wrapper.classList.add('fade');
+        setTimeout(() => wrapper.remove(), 300);
+    }, 2300);
+}
+
+function refreshRealtimePanel() {
+    fetch('/get_latest_sensor_data')
+        .then((res) => res.json())
+        .then((data) => {
+            const ultrasonico = data && data.ultrasonico ? data.ultrasonico : {};
+            const tds = data && data.tds ? data.tds : {};
+            const liquido = data && data.liquido ? data.liquido : {};
+            updateSensorMetric('nivelActual', ultrasonico.distancia_cm, 'cm');
+            updateSensorMetric('tdsActual', tds.ppm, 'ppm');
+            updateSensorMetric('liquidoActual', liquido.nivel_pct, '%');
+            updateSystemSnapshot(data && data.sistema);
+            updateTimestamp(data && data.timestamp);
+        })
+        .catch((err) => console.error('Error actualizando telemetría:', err));
+}
+
+function updateSensorMetric(elementId, value, suffix) {
+    const element = document.getElementById(elementId);
+    if (!element) {
+        return;
+    }
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        element.textContent = '--';
+        return;
+    }
+    const formatted = numeric.toFixed(1);
+    element.textContent = suffix ? `${formatted} ${suffix}` : formatted;
+}
+
+function updateSystemSnapshot(sistema) {
+    const estadoBadge = document.getElementById('sistemaEstadoBadge');
+    const bomba6 = document.getElementById('bomba6Estado');
+    const bomba7 = document.getElementById('bomba7Estado');
+    const servo = document.getElementById('servoEstado');
+
+    if (!sistema) {
+        if (estadoBadge) {
+            estadoBadge.className = STATUS_CLASS_MAP.idle;
+            estadoBadge.innerHTML = '<i class="fas fa-circle"></i>Sin datos';
+        }
+        if (bomba6) bomba6.textContent = '--';
+        if (bomba7) bomba7.textContent = '--';
+        if (servo) servo.textContent = '--';
+        return;
+    }
+
+    if (estadoBadge) {
+        estadoBadge.className = STATUS_CLASS_MAP.success;
+        const estadoTexto = sistema.estado && sistema.estado.trim() ? sistema.estado : 'Operativo';
+        estadoBadge.innerHTML = `<i class="fas fa-circle"></i>&nbsp;${estadoTexto}`;
+    }
+    if (bomba6) bomba6.textContent = sistema.bomba6 !== undefined && sistema.bomba6 !== null ? sistema.bomba6 : '--';
+    if (bomba7) bomba7.textContent = sistema.bomba7 !== undefined && sistema.bomba7 !== null ? sistema.bomba7 : '--';
+    if (servo) servo.textContent = sistema.servo_pos !== undefined && sistema.servo_pos !== null ? sistema.servo_pos : '--';
+}
+
+function updateTimestamp(timestamp) {
+    const label = document.getElementById('sensorUpdatedAt');
+    if (!label) {
+        return;
+    }
+    if (!timestamp) {
+        label.textContent = '--';
+        return;
+    }
+    label.textContent = formatTimestamp(timestamp);
+}
+
+function formatTimestamp(timestamp) {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return '--';
+    }
+    return date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function loadSensorTrend() {
+    Promise.all([
+        fetch('/sensor_data/ultrasonico?limit=12').then((res) => res.json()).catch(() => []),
+        fetch('/sensor_data/calidad?limit=12').then((res) => res.json()).catch(() => [])
+    ]).then(([nivel, tds]) => {
+        const nivelData = Array.isArray(nivel) ? nivel.slice().reverse() : [];
+        const tdsData = Array.isArray(tds) ? tds.slice().reverse() : [];
+        const maxPoints = Math.max(nivelData.length, tdsData.length, 1);
+        const labels = [];
+        const nivelPoints = [];
+        const tdsPoints = [];
+
+        for (let i = 0; i < maxPoints; i += 1) {
+            const nivelPoint = nivelData[i];
+            const tdsPoint = tdsData[i];
+            const labelSource = (nivelPoint && nivelPoint.timestamp) || (tdsPoint && tdsPoint.timestamp);
+            labels.push(labelSource ? formatTimestamp(labelSource) : `Muestra ${i + 1}`);
+            const nivelValor = nivelPoint ? (nivelPoint.distance_cm !== undefined ? nivelPoint.distance_cm : nivelPoint.valor) : null;
+            nivelPoints.push(nivelValor !== undefined && nivelValor !== null ? Number(nivelValor) : null);
+            const tdsValor = tdsPoint ? tdsPoint.valor : null;
+            tdsPoints.push(tdsValor !== undefined && tdsValor !== null ? Number(tdsValor) : null);
+        }
+
+        renderSensorChart(labels, nivelPoints, tdsPoints);
+    }).catch((err) => console.error('Error cargando gráfico:', err));
+}
+
+function renderSensorChart(labels, nivelData, tdsData) {
+    const canvas = document.getElementById('sensorTrendChart');
+    if (!canvas) {
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const chartData = {
+        labels,
+        datasets: [
+            {
+                label: 'Nivel (cm)',
+                data: nivelData,
+                borderColor: '#f0fdfa',
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                borderWidth: 3,
+                lineTension: 0.25,
+                pointRadius: 0
+            },
+            {
+                label: 'TDS (ppm)',
+                data: tdsData,
+                borderColor: '#fcd34d',
+                backgroundColor: 'rgba(252,211,77,0.2)',
+                borderWidth: 3,
+                lineTension: 0.25,
+                pointRadius: 0
+            }
+        ]
+    };
+
+    const chartOptions = {
+        maintainAspectRatio: false,
+        legend: {
+            labels: { fontColor: '#e0f2fe' }
+        },
+        scales: {
+            xAxes: [{
+                ticks: { fontColor: '#e0f2fe', maxTicksLimit: 6 },
+                gridLines: { color: 'rgba(255,255,255,0.2)' }
+            }],
+            yAxes: [{
+                ticks: { fontColor: '#e0f2fe', beginAtZero: true },
+                gridLines: { color: 'rgba(255,255,255,0.2)' }
+            }]
+        }
+    };
+
+    if (!sensorTrendChart) {
+        sensorTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: chartOptions
+        });
+    } else {
+        sensorTrendChart.data = chartData;
+        sensorTrendChart.options = chartOptions;
+        sensorTrendChart.update();
+    }
+}
+
+    </script>
 
 {% endblock %}

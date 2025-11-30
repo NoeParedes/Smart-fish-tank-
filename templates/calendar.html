@@ -1,126 +1,389 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <meta name="description" content="" />
-        <meta name="author" content="" />
-        <title>Irrigation Scheduling - IRRIGO!</title>
-        <!-- FullCalendar CSS -->
-        <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
-        <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
-        <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
-        <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
-        
-        <style>
-            #calendar {
-                max-width: 1100px;
-                margin: 0 auto;
-            }
-            .fc-event {
-                cursor: pointer;
-            }
-            #scheduleModal {
-                display: none;
-                position: fixed;
-                z-index: 1000;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                overflow: auto;
-                background-color: rgba(0,0,0,0.4);
-            }
-            .modal-content {
-                background-color: #fefefe;
-                margin: 15% auto;
-                padding: 20px;
-                border: 1px solid #888;
-                width: 80%;
-                max-width: 500px;
-            }
+{% extends "base2.html" %}
 
-            .modal {
-        display: none;
-        position: fixed;
-        z-index: 1;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgb(0, 0, 0);
-        background-color: rgba(0, 0, 0, 0.4);
-        padding-top: 60px;
-    }
+{% block title %}Planificador de Alimentación{% endblock %}
 
-    .modal-content {
-        background-color: #fefefe;
-        margin: 5% auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 80%;
+{% block content %}
+<style>
+    .feeding-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(6, 182, 212, 0.15);
     }
+    .feeding-card h5 {
+        font-weight: 600;
+        color: #0f172a;
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .status-pill.idle { background: #f1f5f9; color: #475569; }
+    .status-pill.active { background: #dcfce7; color: #166534; }
+    .status-pill.error { background: #fee2e2; color: #991b1b; }
+    .timeline-item {
+        border-left: 3px solid rgba(6,182,212,0.4);
+        padding-left: 1rem;
+        margin-left: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .timeline-item:last-child { margin-bottom: 0; }
+    .timeline-item small { color: #475569; }
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        border: 2px dashed rgba(148, 163, 184, 0.5);
+        border-radius: 18px;
+    }
+    .btn-gradient {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        border: none;
+        color: #fff;
+    }
+</style>
 
-    .btn {
-        margin-top: 10px;
-    }
-        </style>
-    </head>
-    <body class="sb-nav-fixed">
-        <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-            <!-- Navbar Brand-->
-            <a class="navbar-brand ps-3" href="{{ url_for('dashboard') }}">IRRIGO!</a>
-            <!-- Sidebar Toggle-->
-            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
-            <!-- Navbar Search-->
-            <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
-                <div class="input-group">
-                    <input class="form-control" type="text" placeholder="Search for..." aria-label="Search for..." aria-describedby="btnNavbarSearch" />
-                    <button class="btn btn-primary" id="btnNavbarSearch" type="button"><i class="fas fa-search"></i></button>
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h1 class="h3 text-cyan-900 mb-1">
+                <i class="fas fa-bowl-food me-2 text-cyan-600"></i>
+                Planificador de Alimentación
+            </h1>
+            <p class="text-muted mb-0">
+                {% if aspersor_nombre %}
+                    {{ aspersor_nombre }} · ID {{ id_aspersor }}
+                {% else %}
+                    Aspersor #{{ id_aspersor }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="text-muted small">
+            MQTT {{ mqtt_broker }} · {{ mqtt_topic_catcher }}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card feeding-card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-1">Modo Automático</h5>
+                            <p class="text-muted small mb-3">
+                                El firmware gestiona sensores, bombeo y alimentación cuando el modo automático está activo.
+                            </p>
+                        </div>
+                        <span id="autoModeStatus" class="status-pill idle">
+                            <i class="fas fa-circle"></i> Sin datos
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Actualizado <span id="autoModeUpdated">--</span></small>
+                        <button id="autoModeButton" class="btn btn-gradient btn-sm">
+                            <i class="fas fa-play-circle me-1"></i>Enviar AUTOMÁTICO
+                        </button>
+                    </div>
                 </div>
-            </form>
-            <!-- Navbar-->
-            <ul class="navbar-nav ms-auto ms-md-0 me-3 me-lg-4">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-user fa-fw"></i>
-                </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="#!">Settings</a></li>
-                        <li><a class="dropdown-item" href="#!">Activity Log</a></li>
-                        <li><hr class="dropdown-divider" /></li>
-                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
-                    </ul>
-                </li>
-            </ul>
-        </nav>
-        <div id="layoutSidenav">
-            <div id="layoutSidenav_nav">
-                <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
-                    <div class="sb-sidenav-menu">
-                        <div class="nav">
-                            <div class="sb-sidenav-menu-heading">Core</div>
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                Dashboard
-                            </a>
-                            <a class="nav-link" href="{{ url_for('aspersores') }}">
-                                <div class="sb-nav-link-icon"><i class="fas fa-water"></i></div>
-                                Sprinklers
-                            </a>
-                            <!-- Mostrar "Users" solo si el tipo de usuario es "admin" -->
-                        {% if tipo_usuario == "admin" %}
-                        <a class="nav-link" href="{{ url_for('users') }}">
-                            <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
-                            Users
-                        </a>
-                        {% endif %}
-                            
-                            <div class="sb-sidenav-menu-heading">Interface</div>
-                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
-                                <div class="sb-nav-link-icon"><i class="fas fa-columns"></i></div>
+            </div>
+
+            <div class="card feeding-card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1">Alimentación manual inmediata</h5>
+                            <small class="text-muted">Activa el servo por un breve periodo (EXCEPCIONAL SERVO).</small>
+                        </div>
+                        <button id="manualFeedButton" class="btn btn-outline-cyan">
+                            <i class="fas fa-fish me-1"></i>Alimentar ahora
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        Úsalo solo para pruebas rápidas o refuerzos de comida. El modo automático retomará el control inmediatamente.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card feeding-card">
+                <div class="card-body">
+                    <h5 class="mb-3">Programar nueva alimentación</h5>
+                    <form id="feedingForm">
+                        <div class="mb-3">
+                            <label for="feedingDate" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="feedingDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="feedingTime" class="form-label">Hora</label>
+                            <input type="time" class="form-control" id="feedingTime" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="feedingDuration" class="form-label">Duración del servo (min)</label>
+                            <input type="number" class="form-control" id="feedingDuration" min="1" max="10" value="1" required>
+                            <small class="text-muted">Corresponde al tiempo que el servo permanecerá abierto.</small>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-gradient">
+                                <i class="fas fa-save me-1"></i>Guardar programación
+                            </button>
+                        </div>
+                        <div id="formFeedback" class="mt-3 small"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card feeding-card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Próximas alimentaciones</h5>
+                        <small class="text-muted" id="scheduleCount">-- registros</small>
+                    </div>
+                    <div id="scheduleEmptyState" class="empty-state">
+                        <i class="fas fa-clipboard-list mb-2 text-cyan-500" style="font-size:2rem;"></i>
+                        <p class="mb-0">Aún no hay alimentaciones programadas.</p>
+                        <small class="text-muted">Agrega una programación y aparecerá aquí.</small>
+                    </div>
+                    <div id="scheduleList" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+
+            <div class="card feeding-card">
+                <div class="card-body">
+                    <h5 class="mb-3">Timeline de programación</h5>
+                    <div id="scheduleTimeline"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="plannerToastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 2000;"></div>
+
+<script>
+const ASPERSOR_ID = {{ id_aspersor }};
+const COMMAND_ENDPOINT = '/api/catcher_command';
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSchedules();
+    refreshAutoStatus();
+    setInterval(refreshAutoStatus, 5000);
+
+    document.getElementById('feedingForm').addEventListener('submit', handleFeedingSubmit);
+    document.getElementById('autoModeButton').addEventListener('click', () => sendCommand({ tipo: 'AUTOMATICO' }));
+    document.getElementById('manualFeedButton').addEventListener('click', triggerManualFeeding);
+});
+
+function handleFeedingSubmit(event) {
+    event.preventDefault();
+    const date = document.getElementById('feedingDate').value;
+    const time = document.getElementById('feedingTime').value;
+    const duration = parseInt(document.getElementById('feedingDuration').value, 10);
+    const feedback = document.getElementById('formFeedback');
+
+    if (!date || !time || !Number.isFinite(duration)) {
+        feedback.textContent = 'Completa todos los campos.';
+        feedback.className = 'text-danger small';
+        return;
+    }
+
+    const fechaHora = `${date} ${time}:00`;
+    fetch('/save_irrigation_schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            id_aspersor: ASPERSOR_ID,
+            hora_inicio: fechaHora,
+            duracion_minutos: duration
+        })
+    })
+    .then((res) => res.json())
+    .then((data) => {
+        if (data.message) {
+            feedback.textContent = 'Programación guardada correctamente.';
+            feedback.className = 'text-success small';
+            const form = event.target;
+            form.reset();
+            document.getElementById('feedingDuration').value = duration;
+            loadSchedules();
+        } else {
+            throw new Error(data.error || 'No se pudo guardar');
+        }
+    })
+    .catch((error) => {
+        console.error('Error guardando programación:', error);
+        feedback.textContent = 'Ocurrió un error, intenta nuevamente.';
+        feedback.className = 'text-danger small';
+    });
+}
+
+function loadSchedules() {
+    fetch(`/get_programaciones/${ASPERSOR_ID}`)
+        .then((res) => res.json())
+        .then((data) => {
+            if (Array.isArray(data)) {
+                renderScheduleList(data);
+                renderTimeline(data);
+            }
+        })
+        .catch((err) => console.error('Error cargando programaciones:', err));
+}
+
+function renderScheduleList(items) {
+    const list = document.getElementById('scheduleList');
+    const emptyState = document.getElementById('scheduleEmptyState');
+    const count = document.getElementById('scheduleCount');
+    list.innerHTML = '';
+
+    if (!items.length) {
+        emptyState.style.display = 'block';
+        count.textContent = '0 registros';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    count.textContent = `${items.length} registro${items.length === 1 ? '' : 's'}`;
+
+    items.forEach((item) => {
+        const start = formatDateTime(item.hora_inicio);
+        const duration = `${item.duracion_minutos} min`;
+        const row = document.createElement('div');
+        row.className = 'list-group-item d-flex justify-content-between align-items-center py-3';
+        row.innerHTML = `
+            <div>
+                <div class="fw-semibold">${start}</div>
+                <small class="text-muted">Servo activo: ${duration}</small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteSchedule(${item.id_programacion})">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function renderTimeline(items) {
+    const container = document.getElementById('scheduleTimeline');
+    container.innerHTML = '';
+    if (!items.length) {
+        container.innerHTML = '<p class="text-muted small mb-0">No hay historial para mostrar.</p>';
+        return;
+    }
+
+    items.forEach((item) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'timeline-item';
+        wrapper.innerHTML = `
+            <div class="d-flex justify-content-between">
+                <strong>${formatDateTime(item.hora_inicio)}</strong>
+                <span class="badge bg-cyan-100 text-cyan-800">${item.duracion_minutos} min</span>
+            </div>
+            <small>Creado: ${formatDateTime(item.fecha_creacion) || 'Sin registro'}</small>
+        `;
+        container.appendChild(wrapper);
+    });
+}
+
+function deleteSchedule(idProgramacion) {
+    if (!confirm('¿Eliminar esta programación?')) {
+        return;
+    }
+    fetch(`/delete_programacion/${idProgramacion}`, { method: 'DELETE' })
+        .then((res) => res.json())
+        .then((data) => {
+            if (data.success) {
+                showToast('Programación eliminada');
+                loadSchedules();
+            } else {
+                throw new Error(data.error || 'Error');
+            }
+        })
+        .catch((err) => {
+            console.error('Error eliminando programación:', err);
+            showToast('No se pudo eliminar', 'danger');
+        });
+}
+
+function refreshAutoStatus() {
+    fetch('/get_latest_sensor_data')
+        .then((res) => res.json())
+        .then((data) => {
+            const sistema = data && data.sistema ? data.sistema : null;
+            const badge = document.getElementById('autoModeStatus');
+            const updated = document.getElementById('autoModeUpdated');
+
+            if (!sistema) {
+                badge.className = 'status-pill idle';
+                badge.innerHTML = '<i class="fas fa-circle"></i> Sin datos';
+                updated.textContent = 'sin registros';
+                return;
+            }
+
+            const estado = sistema.estado || 'Operativo';
+            const normalized = typeof estado === 'string' ? estado.toUpperCase() : '';
+            badge.className = normalized === 'AUTOMATICO' ? 'status-pill active' : 'status-pill idle';
+            badge.innerHTML = `<i class="fas fa-circle"></i> ${estado}`;
+            updated.textContent = formatDateTime(data.timestamp) || '--';
+        })
+        .catch((err) => console.error('Error leyendo estado:', err));
+}
+
+function triggerManualFeeding() {
+    sendCommand({
+        tipo: 'EXCEPCIONAL',
+        evento: 'SERVO',
+        duracion: 1200,
+        hora: 0
+    });
+}
+
+function sendCommand(payload) {
+    fetch(COMMAND_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then((res) => res.json())
+    .then((data) => {
+        if (data.success) {
+            showToast(data.message || 'Comando enviado', 'success');
+        } else {
+            throw new Error(data.error || 'Error enviando comando');
+        }
+    })
+    .catch((err) => {
+        console.error('Error comando:', err);
+        showToast('No se pudo enviar el comando', 'danger');
+    });
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('plannerToastContainer');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} shadow`;
+    alert.textContent = message;
+    container.appendChild(alert);
+    setTimeout(() => {
+        alert.classList.add('fade');
+        setTimeout(() => alert.remove(), 300);
+    }, 2200);
+}
+
+function formatDateTime(value) {
+    if (!value) {
+        return null;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+    return date.toLocaleString('es-PE', { hour12: false });
+}
+</script>
+{% endblock %}
                                 Layouts
                                 <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
                             </a>
